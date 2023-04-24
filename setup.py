@@ -21,6 +21,7 @@ setup(
     install_requires=[
         "rich",
         "openai",
+        "fastcore",
     ],
     classifiers=[
         "Development Status :: 4 - Beta",
