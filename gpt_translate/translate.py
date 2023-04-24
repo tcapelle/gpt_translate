@@ -21,13 +21,14 @@ if not os.getenv("OPENAI_API_KEY"):
     console.print("[bold red]Please set `OPENAI_API_KEY` environment variable[/]")
     exit(1)
 
-@call_parse
-def translate_file(
-    input_file: Param("File to translate", str),
-    out_file: Param("File to save the translated file to", str),
-    temperature: Param("Temperature of the model", float) = 0.9,
-):
-    console.print(f"Translating {f} to {out_file}")
+def _translate_file(input_file, out_file, temperature=0.9, replace=False):
+    "Translate a file to Japanese using GPT-3/4"
+    
+    if Path(out_file).exists() and not replace:
+        console.print(f"Skipping {input_file} as {out_file} already exists")
+        return
+    
+    console.print(f"Translating {input_file} to {out_file}")
     with open(input_file, "r") as f:
         history = [{"role": "system", "content":  jpn_role}, 
                    {"role": "user",   "content": "ここからが翻訳対象の文章です:\n" + f.read()}]
@@ -44,6 +45,15 @@ def translate_file(
     with open(out_file, "w") as out_f:
         console.print(f"Saving output to {out_file}")
         out_f.writelines(out)
+
+@call_parse
+def translate_file(
+    input_file: Param("File to translate", str),
+    out_file: Param("File to save the translated file to", str),
+    temperature: Param("Temperature of the model", float) = 0.9,
+    replace: Param("Replace existing file", store_true) = False,
+):
+    _translate_file(input_file, out_file, temperature=temperature, replace=replace)
 
 def _get_files(path, extensions=EXTENSIONS):
     if path.is_file():
@@ -70,16 +80,14 @@ def translate_folder(
 
     out_folder.mkdir(exist_ok=True)
 
-    files = _get_files(DOCS_DIR)
+    files = _get_files(docs_folder)
 
     console.print(f"found {len(files)} files to translate")
     
-    for f in track(files, description="Translating files"):
+    for input_file in track(files, description="Translating files"):
         
         # let's make sure to keep the same folder structure
-        out_file = out_folder / f.relative_to(docs_folder)
+        out_file = out_folder / input_file.relative_to(docs_folder)
         out_file.parent.mkdir(exist_ok=True, parents=True)
-        if out_file.exists() and not replace:
-            console.print(f"Skipping {f} as {out_file} already exists")
-        else:
-            translate_file(f, out_file)
+
+        _translate_file(input_file, out_file, replace=replace)

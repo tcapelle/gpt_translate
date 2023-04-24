@@ -18,7 +18,7 @@ We use GPT4 by default.
 To translate a single file:
 
 ```bash
-$ gpt_translate.file --input_file README.md --out_file README.ja.md
+$ gpt_translate.file README.md README.ja.md
 ```
 
 to translate a full folder recursively:
