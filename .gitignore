@@ -1,0 +1,11 @@
+docs/
+docs_jpn/
+
+# python
+*.pyc
+
+# build
+build/
+dist/
+*.egg-info/
+
