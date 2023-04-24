@@ -3,12 +3,22 @@
 This is a tool to translate the language in Markdown files.
 
 > You will need and OpenAI API key to use this tool
+
+## Installation
+You have to clone the repo and then do:
+
+```bash
+$ cd gpt_translate
+$ pip install .
+```
 ## Usage
+
+We use GPT4 by default.
 
 To translate a single file:
 
 ```bash
-$ gpt_translate.file --input_file README.md --output_file README.ja.md
+$ gpt_translate.file --input_file README.md --out_file README.ja.md
 ```
 
 to translate a full folder recursively:
