@@ -1,11 +1,12 @@
 from textwrap import dedent
 
-jpn_role = dict(
+jp = dict(
     system=dedent("""\
 We want to ask for a translation of a Markdown file into Japanese. 
 We will first present the dictionary to be used for domain specific words in the text. 
 After the dictionary we will paste the document that needs translation. 
 - Use the dictionary where you see appropriate.
+- Do not add extra blank lines.
 - It is important to maintain the accuracy of the contents but we don't want the output to read like it's been translated. So instead of translating word by word, prioritize naturalness and ease of communication.
 Please also note, that these documents are written in the Markdown format and the translated document must not break the Markdown structure. 
 There are programming block code that should be left untouched except for the comments between code blocks that are written in plain english.
@@ -157,3 +158,159 @@ Keep in mind all the instructions above when translating documents.
 """),
     prompt="Here is a chunk of Markdown text to translate. Please translate it to Japanese. Return the translated text only, without saying anything else. Text: \n",
 )
+
+es = dict(
+    system=dedent("""\
+We want to ask for a translation of a Markdown file into Spanish. 
+We will first present the dictionary to be used for domain specific words in the text. 
+After the dictionary we will paste the document that needs translation. 
+- Use the dictionary where you see appropriate.
+- Do not add extra blank lines.
+- It is important to maintain the accuracy of the contents but we don't want the output to read like it's been translated. So instead of translating word by word, prioritize naturalness and ease of communication.
+Please also note, that these documents are written in the Markdown format and the translated document must not break the Markdown structure. 
+There are programming block code that should be left untouched except for the comments between code blocks that are written in plain english.
+
+Here is the translation dictionary for domain specific words:
+<Dictionary start>
+English Spanish
+accuracy plot: gráfica de precisión
+address: dirección
+alias: alias
+API key: clave API
+application: aplicación
+arg: ARG
+argument: argumento
+artifact: artefacto
+AV model: modelo AV
+backup: resplado
+baseline: referencia
+Bayesian search: búsqueda bayesiana
+bias: sesgo
+blog: blog
+bucket: bucket
+business context: contexto de negocio
+chatbot: chatbot
+checkpoint: checkpoint
+cloud: nube
+cluster: cluster
+Colab notebook: Colab Notebooks
+computer vision: visión por computadora
+configuration: configuración
+convolutional block: bloque convolucional
+course: curso
+customer case study: caso de estudio de cliente
+cutting-edge: de última generación
+dashboard: panel de control
+data: datos
+data leakage: filtración de datos
+data obfuscation: ofuscación de datos
+data visualization: visualización de datos
+dataset: dataset
+dataset-agnostic: dataset-agnóstico
+deep learning: aprendizaje profundo
+demo: demo
+deployment: despliegue
+directory: directorio
+docker container: contenedor docker
+ecosystem: ecosistema
+edge case: caso extremo
+end-to-end: end-to-end
+environment: entorno
+epoch: epoch
+experiment: experimento
+fine-tune: calibración fina
+forward pass: evaluación directa
+ground truth: verdad de campo
+guide: guía
+hook: hook
+host flag: host flag
+Hugging Face Transformer: Hugging Face Transformer
+hyperparameter: hiperparámetro
+hyperparameter sweep: barrido de hiperparámetros
+hyperparameter tuning: ajuste de hiperparámetros
+infrastructure: infraestructura
+key: clave
+library: biblioteca
+line of code: linea de código
+lineage: linaje
+local minima: mínimo local
+log: registro
+machine learning: aprendizaje automático
+machine learning practitioner: profesional de aprendizaje automático
+metadata: metadatos
+method: método
+metrics: métricas
+ML practitioner: profesional de ML
+model: modelo
+model evolution: evolución del modelo
+model lineage: linaje del modelo
+model management: gestión del modelo
+model registry: registro de modelos
+model training: entrenamiento del modelo
+neural network: red neuronal
+noising: ruido
+notebook: notebook
+object: objeto
+on-prem: on-prem
+Optimizer: Optimizador
+orchestration: orquestación
+overfitting: sobrecalibración
+pipeline: pipeline
+platform: plataforma
+population based training: entrenamiento basado en población
+precision-recall curve: curva de precisión-recuperación
+pre-trained: pre-entrenado
+private cloud: nube privada
+process: proceso
+processing: procesamiento
+production: producción
+project: proyecto
+Quickstart: inicio rápido
+recommender system: sistema de recomendación
+reinforcement learning: aprendizaje por refuerzo
+report: reporte
+reproducibility: reproducibilidad
+result: resultado
+run: run
+runs: runs
+SaaS: SaaS
+script: script
+semantic segmentation: segmentación semántica
+sentiment analysis: análisis de sentimiento
+server: servidor
+state assignments: asignaciones de estado
+subset: subconjunto
+support team: equipo de soporte
+sweep: barrido
+sweep agent: agente de barrido
+sweep configuration: configuración de barrido
+sweep server: servidor de barrido
+system of record: sistema de registro
+test set: conjunto de prueba
+text-to-image: text-to-image
+time series: series de tiempo
+tool: herramienta
+track: seguimiento
+tracked hours: horas de seguimiento
+training: entrenamiento
+training data: datos de entrenamiento
+training script: script de entrenamiento
+trial: prueba
+tune: ajustar
+use case: caso de uso
+user: usuario
+validation accuracy: precisión de validación
+version: versión
+versioning: versionamiento
+W&B Fully Connected: W&B Fully Connected
+wandb library: biblioteca wandb
+Weave expression: expresión Weave
+<End of Dictionary>
+
+Keep in mind all the instructions above when translating documents.
+"""),
+    prompt="Here is a chunk of Markdown text to translate. Please translate it to Spanish. Return the translated text only, without saying anything else. Text: \n",
+)
+
+
+translation_roles = dict(jp=jp, es=es)
