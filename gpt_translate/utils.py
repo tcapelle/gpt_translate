@@ -13,7 +13,7 @@ def split_markdown_file(file: Path,  min_lines:int=50):
 
     for line in lines:
         if header_pattern.match(line) and line_count >= min_lines:
-            chunks.append("\n".join(chunk))
+            chunks.append("".join(chunk))
             chunk = []
             line_count = 0
 
@@ -37,3 +37,4 @@ def count_file_lines(file: Path):
 if __name__ == "__main__":
     chunks = split_markdown_file("docs/intro.md")
     print(len(chunks))
+    print(chunks[0])
