@@ -30,7 +30,10 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3.10",
     ],
-    entry_points={"console_scripts": ["gpt_translate.file=gpt_translate.translate:translate_file",
-                                      "gpt_translate.folder=gpt_translate.translate:translate_folder",
-                                      ]},
+    entry_points={
+        "console_scripts": [
+            "gpt_translate.file=gpt_translate.translate:translate_file",
+            "gpt_translate.folder=gpt_translate.translate:translate_folder",
+        ]
+    },
 )

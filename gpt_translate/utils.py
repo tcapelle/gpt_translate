@@ -1,11 +1,12 @@
 import re
 from pathlib import Path
 
-def split_markdown_file(file: Path,  min_lines:int=50):
-    with open(file, 'r') as f:
+
+def split_markdown_file(file: Path, min_lines: int = 50):
+    with open(file, "r") as f:
         lines = f.readlines()
 
-    header_pattern = re.compile(r'^#{1,6} .*$')
+    header_pattern = re.compile(r"^#{1,6} .*$")
 
     chunks = []
     chunk = []
@@ -28,11 +29,13 @@ def split_markdown_file(file: Path,  min_lines:int=50):
 
     return chunks
 
+
 def count_file_lines(file: Path):
-    with open(file, 'r') as f:
+    with open(file, "r") as f:
         lines = f.readlines()
 
     return len(lines)
+
 
 if __name__ == "__main__":
     chunks = split_markdown_file("docs/intro.md")

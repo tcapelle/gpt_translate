@@ -1,7 +1,8 @@
 from textwrap import dedent
 
 jp = dict(
-    system=dedent("""\
+    system=dedent(
+        """\
 We want to ask for a translation of a Markdown file into Japanese. 
 We will first present the dictionary to be used for domain specific words in the text. 
 After the dictionary we will paste the document that needs translation. 
@@ -155,12 +156,14 @@ Weave expression: Weave式
 <End of Dictionary>
 
 Keep in mind all the instructions above when translating documents.
-"""),
+"""
+    ),
     prompt="Here is a chunk of Markdown text to translate. Please translate it to Japanese. Return the translated text only, without saying anything else. Text: \n",
 )
 
 es = dict(
-    system=dedent("""\
+    system=dedent(
+        """\
 We want to ask for a translation of a Markdown file into Spanish. 
 We will first present the dictionary to be used for domain specific words in the text. 
 After the dictionary we will paste the document that needs translation. 
@@ -308,7 +311,8 @@ Weave expression: expresión Weave
 <End of Dictionary>
 
 Keep in mind all the instructions above when translating documents.
-"""),
+"""
+    ),
     prompt="Here is a chunk of Markdown text to translate. Please translate it to Spanish. Return the translated text only, without saying anything else. Text: \n",
 )
 
