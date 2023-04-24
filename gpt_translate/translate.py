@@ -56,8 +56,8 @@ def _translate_file(input_file, out_file, temperature=0.9, replace=False):
         console.print(f"Skipping {input_file} as it has a chunk with more than {MAX_CHUNK_LENGTH} lines")
         return
     
-    for chunk in chunks:
-        console.print(Markdown("Translating chunk:\n"+chunk))
+    for i, chunk in enumerate(chunks):
+        console.print(f"Translating chunk {i+1}/{len(chunks)}")
         out.append(call_model(chunk, temperature=temperature))
     
     # merge the chunks
