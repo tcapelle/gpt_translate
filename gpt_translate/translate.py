@@ -30,8 +30,8 @@ def _translate_file(input_file, out_file, temperature=0.9, replace=False):
     
     console.print(f"Translating {input_file} to {out_file}")
     with open(input_file, "r") as f:
-        history = [{"role": "system", "content":  jpn_role}, 
-                   {"role": "user",   "content": "ここからが翻訳対象の文章です:\n" + f.read()}]
+        history = [{"role": "system", "content":  jpn_role["system"]}, 
+                   {"role": "user",   "content": jpn_role["prompt"]+ "\n" + f.read()}]
     t0 = time.perf_counter()
     r = openai.ChatCompletion.create(
         model=GPT4,
