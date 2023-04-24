@@ -4,34 +4,32 @@ from pathlib import Path
 import openai
 from rich.console import Console
 from rich.progress import track
+from rich.markdown import Markdown
 from fastcore.script import call_parse, Param, store_true
 
 
 from gpt_translate.roles import jpn_role
+from gpt_translate.utils import split_markdown_file
 
 console = Console()
 
 DOCS_DIR = Path("docs")
 OUTDOCS_DIR = Path("docs_jpn")
 EXTENSIONS = ["*.md", "*.mdx"]
+MAX_CHUNK_LENGTH = 100
+MIN_LINE = 50
 
 GPT4 = "gpt-4"  # if you have access...
+# GPT4 = "gpt-4-32k"
 
 if not os.getenv("OPENAI_API_KEY"):
     console.print("[bold red]Please set `OPENAI_API_KEY` environment variable[/]")
     exit(1)
 
-def _translate_file(input_file, out_file, temperature=0.9, replace=False):
-    "Translate a file to Japanese using GPT-3/4"
-    
-    if Path(out_file).exists() and not replace:
-        console.print(f"Skipping {input_file} as {out_file} already exists")
-        return
-    
-    console.print(f"Translating {input_file} to {out_file}")
-    with open(input_file, "r") as f:
-        history = [{"role": "system", "content":  jpn_role["system"]}, 
-                   {"role": "user",   "content": jpn_role["prompt"]+ "\n" + f.read()}]
+def call_model(query, temperature=0.9):
+    "Call the model and return the output"
+    history = [{"role": "system", "content":  jpn_role["system"]}, 
+                {"role": "user",   "content": jpn_role["prompt"]+ "\n" + query}]
     t0 = time.perf_counter()
     r = openai.ChatCompletion.create(
         model=GPT4,
@@ -41,6 +39,29 @@ def _translate_file(input_file, out_file, temperature=0.9, replace=False):
     out = r["choices"][0]["message"]["content"]
     total_time = time.perf_counter() - t0
     console.print(f"Time taken: {total_time:.2f} seconds")
+    return out
+
+def _translate_file(input_file, out_file, temperature=0.9, replace=False):
+    "Translate a file to Japanese using GPT-3/4"
+    
+    if Path(out_file).exists() and not replace:
+        console.print(f"Skipping {input_file} as {out_file} already exists")
+        return
+    
+    console.print(f"Translating {input_file} to {out_file}")
+    chunks = split_markdown_file(input_file, min_lines=MIN_LINE)
+    out = []
+
+    if len(chunks[0].split("\n")) > MAX_CHUNK_LENGTH:
+        console.print(f"Skipping {input_file} as it has a chunk with more than {MAX_CHUNK_LENGTH} lines")
+        return
+    
+    for chunk in chunks:
+        console.print(Markdown("Translating chunk:\n"+chunk))
+        out.append(call_model(chunk, temperature=temperature))
+    
+    # merge the chunks
+    out = "\n".join(out)
 
     out_file.parent.mkdir(exist_ok=True, parents=True)
     with open(out_file, "w") as out_f:
@@ -59,7 +80,7 @@ def translate_file(
     except Exception as e:
         console.print(f"[bold red]Error while translating {input_file}[/]")
         console.print(e)
-        
+
 def _get_files(path, extensions=EXTENSIONS):
     if path.is_file():
         return [path]
