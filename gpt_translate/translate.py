@@ -1,4 +1,5 @@
 import os, time
+from textwrap import dedent
 from pathlib import Path
 
 import openai
@@ -16,8 +17,8 @@ console = Console()
 DOCS_DIR = Path("docs")
 OUTDOCS_DIR = Path("docs_jpn")
 EXTENSIONS = ["*.md", "*.mdx"]
-MAX_CHUNK_LENGTH = 100
-MIN_LINE = 50
+MAX_CHUNK_LENGTH = 50
+MIN_LINE = 10
 
 GPT4 = "gpt-4"  # if you have access...
 GPT3 = "gpt-3.5-turbo"
@@ -26,9 +27,9 @@ GPT3 = "gpt-3.5-turbo"
 
 def parse_model_name(model):
     "Parse the model name and return the pricing"
-    if model.contains("gpt-4"):
+    if "4" in model:
         return GPT4
-    elif model.contains("gpt-3"):
+    elif "3.5" in model:
         return GPT3
 
 
@@ -53,6 +54,9 @@ def call_model(model, query, temperature=0.9, language="jn"):
     out = r["choices"][0]["message"]["content"]
     total_time = time.perf_counter() - t0
     console.print(f"Time taken: {total_time:.2f} seconds")
+    ptokens, ctokens = r["usage"]["prompt_tokens"], r["usage"]["completion_tokens"]
+    console.print(f"Tokens: {ptokens} / {ctokens}")
+    console.print(f"Cost: ${(ptokens*0.03+ctokens*0.06)/1000}")
     return out
 
 
@@ -131,10 +135,18 @@ def translate_folder(
 ):
     "Translate a folder to Japanese using GPT-3/4"
     docs_folder = Path(docs_folder)
-    console.print(f"Using {docs_folder}/ as input folder")
-
     out_folder = Path(out_folder)
-    console.print(f"Using {out_folder}/ as output folder")
+    console.print(
+        dedent(
+            f"""
+        ======================================
+        Using {docs_folder}/ as input folder
+        Using {out_folder}/ as output folder
+        model = {model}
+        language = {language}
+        ======================================"""
+        )
+    )
 
     out_folder.mkdir(exist_ok=True)
 
