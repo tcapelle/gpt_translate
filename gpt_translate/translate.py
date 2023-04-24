@@ -42,6 +42,7 @@ def _translate_file(input_file, out_file, temperature=0.9, replace=False):
     total_time = time.perf_counter() - t0
     console.print(f"Time taken: {total_time:.2f} seconds")
 
+    out_file.parent.mkdir(exist_ok=True, parents=True)
     with open(out_file, "w") as out_f:
         console.print(f"Saving output to {out_file}")
         out_f.writelines(out)
@@ -53,8 +54,12 @@ def translate_file(
     temperature: Param("Temperature of the model", float) = 0.9,
     replace: Param("Replace existing file", store_true) = False,
 ):
-    _translate_file(input_file, out_file, temperature=temperature, replace=replace)
-
+    try:
+        _translate_file(Path(input_file), Path(out_file), temperature=temperature, replace=replace)
+    except Exception as e:
+        console.print(f"[bold red]Error while translating {input_file}[/]")
+        console.print(e)
+        
 def _get_files(path, extensions=EXTENSIONS):
     if path.is_file():
         return [path]
@@ -88,6 +93,4 @@ def translate_folder(
         
         # let's make sure to keep the same folder structure
         out_file = out_folder / input_file.relative_to(docs_folder)
-        out_file.parent.mkdir(exist_ok=True, parents=True)
-
         _translate_file(input_file, out_file, replace=replace)
