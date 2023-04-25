@@ -2,9 +2,20 @@ import re
 from pathlib import Path
 
 
+def check_file_non_empty(file: Path):
+    with open(file, "r") as f:
+        lines = f.readlines()
+
+    return bool(lines)
+
+
 def split_markdown_file(file: Path, min_lines: int = 30):
     with open(file, "r") as f:
         lines = f.readlines()
+
+    # check empty file
+    if not lines:
+        return []
 
     header_pattern = re.compile(r"^#{1,6} .*$")
     double_or_empty_line_pattern = re.compile(r"^\s*$")
@@ -24,7 +35,7 @@ def split_markdown_file(file: Path, min_lines: int = 30):
         line_count += 1
 
     # Add the last chunk
-    chunks.append("\n".join(chunk))
+    chunks.append("".join(chunk))
 
     # Filter out empty chunks
     chunks = [chunk.strip() for chunk in chunks if chunk.strip()]
