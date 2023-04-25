@@ -97,12 +97,12 @@ def _translate_file(
             console.print(f"Translating chunk {i+1}/{len(chunks)}")
             try:
                 if verbose:
-                    console.print(f"Input Text: \n{chunk}")
+                    console.print(f"Input Text:\n==============\n{chunk}")
                 out.append(
                     call_model(model, chunk, temperature=temperature, language=language)
                 )
                 if verbose:
-                    console.print(f"Translation: \n{out[-1]}")
+                    console.print(f"Translation:\n==============\n{out[-1]}")
             except Exception as e:
                 if "currently overloaded" in str(e):
                     console.print("Server overloaded, waiting for 30 seconds")
