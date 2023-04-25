@@ -2,7 +2,7 @@ import re
 from pathlib import Path
 
 
-def split_markdown_file(file: Path, min_lines: int = 50):
+def split_markdown_file(file: Path, min_lines: int = 30):
     with open(file, "r") as f:
         lines = f.readlines()
 
