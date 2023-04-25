@@ -20,7 +20,6 @@ jp = dict(
     system=dedent(
         """\
 Translate the following Markdown into Japanese.
-Here is a dictionary to be used for domain specific words in the text.
 - Use the dictionary where you see appropriate.
 - Do not add extra blank lines.
 - The results must be valid markdown
@@ -180,7 +179,6 @@ es = dict(
     system=dedent(
         """\
 Translate the following Markdown into Spanish.
-Here is a dictionary to be used for domain specific words in the text.
 - Use the dictionary where you see appropriate.
 - Do not add extra blank lines.
 - The results must be valid markdown
