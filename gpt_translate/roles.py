@@ -2,10 +2,13 @@ from textwrap import dedent
 
 END_DICT = "Keep in mind all the instructions above when translating documents."
 
+
 def filter_dictionary(query, dictionary):
     "Filter out words from the query that are not in the dictionary"
     dictionary = dictionary.split("\n")
-    filtered_dict = [dictionary[0], ]
+    filtered_dict = [
+        dictionary[0],
+    ]
     for line in dictionary:
         dict_word = line.split(":")[0].lower()
         if any([w in query.lower() for w in dict_word.split(" ")]):
@@ -14,7 +17,7 @@ def filter_dictionary(query, dictionary):
 
     filtered_dict.append(END_DICT)
     return "\n".join(filtered_dict)
-    
+
 
 jp = dict(
     system=dedent(
@@ -26,7 +29,8 @@ Translate the following Markdown into Japanese.
 - It is important to maintain the accuracy of the contents but we don't want the output to read like it's been translated. So instead of translating word by word, prioritize naturalness and ease of communication.
 - In code blocks, just translate the comments and leave the code as is.
 Here is the translation dictionary for domain specific words:
-"""),
+"""
+    ),
     dictionary="""\
 <Dictionary start>
 English Japanese
@@ -174,7 +178,6 @@ Weave expression: Weave式
 )
 
 
-
 es = dict(
     system=dedent(
         """\
@@ -185,7 +188,8 @@ Translate the following Markdown into Spanish.
 - It is important to maintain the accuracy of the contents but we don't want the output to read like it's been translated. So instead of translating word by word, prioritize naturalness and ease of communication.
 - In code blocks, just translate the comments and leave the code as is.
 Here is the translation dictionary for domain specific words:
-"""),
+"""
+    ),
     dictionary="""\
 <Dictionary start>
 English Spanish
@@ -329,5 +333,9 @@ Weave expression: expresión Weave
 translation_roles = dict(jp=jp, es=es)
 
 if __name__ == "__main__":
-    out = filter_dictionary("Creating a colab is an easy way to do parameter sweeps", jp["dictionary"])
+    out = filter_dictionary(
+        "Creating a colab is an easy way to do parameter sweeps", jp["dictionary"]
+    )
     print(out)
+    with open("jp.txt", "w") as f:
+        pass
