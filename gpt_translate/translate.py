@@ -10,13 +10,12 @@ from fastcore.script import call_parse, Param, store_true
 
 
 from gpt_translate.roles import translation_roles, filter_dictionary
-from gpt_translate.utils import split_markdown_file, check_file_non_empty
+from gpt_translate.utils import split_markdown_file, get_md_files
 
 console = Console()
 
 DOCS_DIR = Path("docs")
 OUTDOCS_DIR = Path("docs_jpn")
-EXTENSIONS = ["*.md", "*.mdx"]
 MAX_CHUNK_LENGTH = 50
 MIN_LINE = 40
 
@@ -138,16 +137,6 @@ def translate_file(
         console.print(e)
 
 
-def _get_files(path, extensions=EXTENSIONS):
-    if path.is_file():
-        return [path]
-    files = []
-    for ext in extensions:
-        files.extend(list(path.rglob(ext)))
-        files.sort()
-    return files
-
-
 @call_parse
 def translate_folder(
     docs_folder: Param("Folder containing markdown files to translate", str) = DOCS_DIR,
@@ -173,7 +162,7 @@ def translate_folder(
 
     out_folder.mkdir(exist_ok=True)
 
-    files = _get_files(docs_folder)
+    files = get_md_files(docs_folder)
 
     console.print(f"found {len(files)} files to translate")
 
