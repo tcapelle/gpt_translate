@@ -1,4 +1,5 @@
 import re
+from fastcore.script import call_parse, Param, store_true
 from pathlib import Path
 
 
@@ -48,6 +49,32 @@ def count_file_lines(file: Path):
         lines = f.readlines()
 
     return len(lines)
+
+
+EXTENSIONS = ["*.md", "*.mdx"]
+
+
+def get_md_files(path, extensions=EXTENSIONS):
+    path = Path(path)
+    if path.is_file():
+        return [path]
+    files = []
+    for ext in extensions:
+        files.extend(list(path.rglob(ext)))
+        files.sort()
+    return files
+
+
+@call_parse
+def delete_empty_files(
+    path: Param("Path to delete empty files from", str),
+    verbose: Param("Verbose", store_true) = False,
+):
+    for f in get_md_files(path):
+        if not check_file_non_empty(f):
+            if verbose:
+                print(f"Deleting {f}")
+            f.unlink()
 
 
 if __name__ == "__main__":

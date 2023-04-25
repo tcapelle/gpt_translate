@@ -34,6 +34,7 @@ setup(
         "console_scripts": [
             "gpt_translate.file=gpt_translate.translate:translate_file",
             "gpt_translate.folder=gpt_translate.translate:translate_folder",
+            "gpt_translate.delete_empty_files=gpt_translate.utils:delete_empty_files",
         ]
     },
 )
