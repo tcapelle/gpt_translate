@@ -10,7 +10,7 @@ from fastcore.script import call_parse, Param, store_true
 
 
 from gpt_translate.roles import translation_roles, filter_dictionary
-from gpt_translate.utils import split_markdown_file
+from gpt_translate.utils import split_markdown_file, check_file_non_empty
 
 console = Console()
 
@@ -18,7 +18,7 @@ DOCS_DIR = Path("docs")
 OUTDOCS_DIR = Path("docs_jpn")
 EXTENSIONS = ["*.md", "*.mdx"]
 MAX_CHUNK_LENGTH = 50
-MIN_LINE = 30
+MIN_LINE = 40
 
 GPT4 = "gpt-4"  # if you have access...
 GPT3 = "gpt-3.5-turbo"
@@ -38,8 +38,7 @@ if not os.getenv("OPENAI_API_KEY"):
     exit(1)
 
 
-
-def call_model(model, query, temperature=0.7, language="jn"):
+def call_model(model, query, temperature=0.7, language="jp"):
     "Call the model and return the output"
     role = translation_roles[language]
 
@@ -67,7 +66,7 @@ def call_model(model, query, temperature=0.7, language="jn"):
 
 
 def _translate_file(
-    input_file, out_file, temperature=0.9, replace=False, language="jn", model=GPT4
+    input_file, out_file, temperature=0.9, replace=False, language="jp", model=GPT4
 ):
     "Translate a file to Japanese using GPT-3/4"
 
@@ -75,24 +74,42 @@ def _translate_file(
         console.print(f"Skipping {input_file} as {out_file} already exists")
         return
 
+    # create the output file
+    out_file.parent.mkdir(exist_ok=True, parents=True)
+    out_file.touch()
+
     console.print(f"Translating {input_file} to {out_file}")
     chunks = split_markdown_file(input_file, min_lines=MIN_LINE)
     out = []
+    if chunks:
+        if len(chunks[0].split("\n")) > MAX_CHUNK_LENGTH:
+            console.print(
+                f"Skipping {input_file} as it has a chunk with more than {MAX_CHUNK_LENGTH} lines"
+            )
+            return
 
-    if len(chunks[0].split("\n")) > MAX_CHUNK_LENGTH:
-        console.print(
-            f"Skipping {input_file} as it has a chunk with more than {MAX_CHUNK_LENGTH} lines"
-        )
-        return
+        for i, chunk in enumerate(chunks):
+            console.print(f"Translating chunk {i+1}/{len(chunks)}")
+            try:
+                out.append(
+                    call_model(model, chunk, temperature=temperature, language=language)
+                )
+            except Exception as e:
+                if "currently overloaded" in str(e):
+                    console.print("Server overloaded, waiting for 30 seconds")
+                    time.sleep(30)
+                    out.append(
+                        call_model(
+                            model, chunk, temperature=temperature, language=language
+                        )
+                    )
+                raise e
 
-    for i, chunk in enumerate(chunks):
-        console.print(f"Translating chunk {i+1}/{len(chunks)}")
-        out.append(call_model(model, chunk, temperature=temperature, language=language))
+        # merge the chunks
+        out = "\n".join(out)
+    else:
+        out = ""
 
-    # merge the chunks
-    out = "\n".join(out)
-
-    out_file.parent.mkdir(exist_ok=True, parents=True)
     with open(out_file, "w") as out_f:
         console.print(f"Saving output to {out_file}")
         out_f.writelines(out)
@@ -104,7 +121,7 @@ def translate_file(
     out_file: Param("File to save the translated file to", str),
     temperature: Param("Temperature of the model", float) = 0.9,
     replace: Param("Replace existing file", store_true) = False,
-    language: Param("Language to translate to", str) = "jn",
+    language: Param("Language to translate to", str) = "jp",
     model: Param("Model to use", str) = GPT4,
 ):
     try:
@@ -163,4 +180,11 @@ def translate_folder(
     for input_file in track(files, description="Translating files"):
         # let's make sure to keep the same folder structure
         out_file = out_folder / input_file.relative_to(docs_folder)
-        _translate_file(input_file, out_file, replace=replace, language=language, model=model)
+        try:
+            _translate_file(
+                input_file, out_file, replace=replace, language=language, model=model
+            )
+        except Exception as e:
+            out_file.unlink()
+            console.print(f"[bold red]Error while translating {input_file}[/]")
+            console.print(e)
