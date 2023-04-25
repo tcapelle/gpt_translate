@@ -1,18 +1,34 @@
 from textwrap import dedent
 
+END_DICT = "Keep in mind all the instructions above when translating documents."
+
+def filter_dictionary(query, dictionary):
+    "Filter out words from the query that are not in the dictionary"
+    dictionary = dictionary.split("\n")
+    filtered_dict = [dictionary[0], ]
+    for line in dictionary:
+        dict_word = line.split(":")[0].lower()
+        if any([w in query.lower() for w in dict_word.split(" ")]):
+            filtered_dict.append(line)
+    filtered_dict.append(dictionary[-2])
+
+    filtered_dict.append(END_DICT)
+    return "\n".join(filtered_dict)
+    
+
 jp = dict(
     system=dedent(
         """\
-We want to ask for a translation of a Markdown file into Japanese. 
-We will first present the dictionary to be used for domain specific words in the text. 
-After the dictionary we will paste the document that needs translation. 
+Translate the following Markdown into Japanese.
+Here is a dictionary to be used for domain specific words in the text.
 - Use the dictionary where you see appropriate.
 - Do not add extra blank lines.
+- The results must be valid markdown
 - It is important to maintain the accuracy of the contents but we don't want the output to read like it's been translated. So instead of translating word by word, prioritize naturalness and ease of communication.
-Please also note, that these documents are written in the Markdown format and the translated document must not break the Markdown structure. 
-There are programming block code that should be left untouched except for the comments between code blocks that are written in plain english.
-
+- In code blocks, just translate the comments and leave the code as is.
 Here is the translation dictionary for domain specific words:
+"""),
+    dictionary="""\
 <Dictionary start>
 English Japanese
 access: アクセス
@@ -154,26 +170,25 @@ W&B Fully Connected: W&B Fully Connected
 wandb library: wandbライブラリ
 Weave expression: Weave式
 <End of Dictionary>
-
-Keep in mind all the instructions above when translating documents.
-"""
-    ),
+""",
     prompt="Here is a chunk of Markdown text to translate. Please translate it to Japanese. Return the translated text only, without saying anything else. Text: \n",
 )
+
+
 
 es = dict(
     system=dedent(
         """\
-We want to ask for a translation of a Markdown file into Spanish. 
-We will first present the dictionary to be used for domain specific words in the text. 
-After the dictionary we will paste the document that needs translation. 
+Translate the following Markdown into Spanish.
+Here is a dictionary to be used for domain specific words in the text.
 - Use the dictionary where you see appropriate.
 - Do not add extra blank lines.
+- The results must be valid markdown
 - It is important to maintain the accuracy of the contents but we don't want the output to read like it's been translated. So instead of translating word by word, prioritize naturalness and ease of communication.
-Please also note, that these documents are written in the Markdown format and the translated document must not break the Markdown structure. 
-There are programming block code that should be left untouched except for the comments between code blocks that are written in plain english.
-
+- In code blocks, just translate the comments and leave the code as is.
 Here is the translation dictionary for domain specific words:
+"""),
+    dictionary="""\
 <Dictionary start>
 English Spanish
 accuracy plot: gráfica de precisión
@@ -309,12 +324,12 @@ W&B Fully Connected: W&B Fully Connected
 wandb library: biblioteca wandb
 Weave expression: expresión Weave
 <End of Dictionary>
-
-Keep in mind all the instructions above when translating documents.
-"""
-    ),
+""",
     prompt="Here is a chunk of Markdown text to translate. Please translate it to Spanish. Return the translated text only, without saying anything else. Text: \n",
 )
 
-
 translation_roles = dict(jp=jp, es=es)
+
+if __name__ == "__main__":
+    out = filter_dictionary("Creating a colab is an easy way to do parameter sweeps", jp["dictionary"])
+    print(out)

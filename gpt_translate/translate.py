@@ -9,7 +9,7 @@ from rich.markdown import Markdown
 from fastcore.script import call_parse, Param, store_true
 
 
-from gpt_translate.roles import translation_roles
+from gpt_translate.roles import translation_roles, filter_dictionary
 from gpt_translate.utils import split_markdown_file
 
 console = Console()
@@ -18,7 +18,7 @@ DOCS_DIR = Path("docs")
 OUTDOCS_DIR = Path("docs_jpn")
 EXTENSIONS = ["*.md", "*.mdx"]
 MAX_CHUNK_LENGTH = 50
-MIN_LINE = 10
+MIN_LINE = 30
 
 GPT4 = "gpt-4"  # if you have access...
 GPT3 = "gpt-3.5-turbo"
@@ -38,11 +38,17 @@ if not os.getenv("OPENAI_API_KEY"):
     exit(1)
 
 
-def call_model(model, query, temperature=0.9, language="jn"):
+
+def call_model(model, query, temperature=0.7, language="jn"):
     "Call the model and return the output"
     role = translation_roles[language]
+
+    # remove unnecessary dictionary entries from the role
+    filtered_dict = filter_dictionary(query, role["dictionary"])
+    system_role = role["system"] + filtered_dict
+
     history = [
-        {"role": "system", "content": role["system"]},
+        {"role": "system", "content": system_role},
         {"role": "user", "content": role["prompt"] + "\n" + query},
     ]
     t0 = time.perf_counter()
