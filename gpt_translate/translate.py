@@ -65,7 +65,13 @@ def call_model(model, query, temperature=0.7, language="jp"):
 
 
 def _translate_file(
-    input_file, out_file, temperature=0.9, replace=False, language="jp", model=GPT4
+    input_file,
+    out_file,
+    temperature=0.9,
+    replace=False,
+    language="jp",
+    model=GPT4,
+    verbose=False,
 ):
     "Translate a file to Japanese using GPT-3/4"
 
@@ -90,9 +96,13 @@ def _translate_file(
         for i, chunk in enumerate(chunks):
             console.print(f"Translating chunk {i+1}/{len(chunks)}")
             try:
+                if verbose:
+                    console.print(f"Input Text: \n{chunk}")
                 out.append(
                     call_model(model, chunk, temperature=temperature, language=language)
                 )
+                if verbose:
+                    console.print(f"Translation: \n{out[-1]}")
             except Exception as e:
                 if "currently overloaded" in str(e):
                     console.print("Server overloaded, waiting for 30 seconds")
@@ -122,6 +132,7 @@ def translate_file(
     replace: Param("Replace existing file", store_true) = False,
     language: Param("Language to translate to", str) = "jp",
     model: Param("Model to use", str) = GPT4,
+    verbose: Param("Print the output", store_true) = False,
 ):
     try:
         _translate_file(
@@ -131,6 +142,7 @@ def translate_file(
             replace=replace,
             language=language,
             model=model,
+            verbose=verbose,
         )
     except Exception as e:
         console.print(f"[bold red]Error while translating {input_file}[/]")
@@ -144,6 +156,7 @@ def translate_folder(
     replace: Param("Replace existing files", store_true) = False,
     language: Param("Language to translate to", str) = "jn",
     model: Param("Model to use", str) = GPT4,
+    verbose: Param("Print the output", store_true) = False,
 ):
     "Translate a folder to Japanese using GPT-3/4"
     docs_folder = Path(docs_folder)
@@ -171,7 +184,12 @@ def translate_folder(
         out_file = out_folder / input_file.relative_to(docs_folder)
         try:
             _translate_file(
-                input_file, out_file, replace=replace, language=language, model=model
+                input_file,
+                out_file,
+                replace=replace,
+                language=language,
+                model=model,
+                verbose=verbose,
             )
         except Exception as e:
             out_file.unlink()
