@@ -22,13 +22,13 @@ def filter_dictionary(query, dictionary):
 jp = dict(
     system=dedent(
         """\
-Translate the following Markdown into Japanese.
-- Use the dictionary where you see appropriate.
+You are a translation assistant from English into Japanese. Some rules to remember:
 - Do not add extra blank lines.
 - The results must be valid markdown
 - It is important to maintain the accuracy of the contents but we don't want the output to read like it's been translated. So instead of translating word by word, prioritize naturalness and ease of communication.
 - In code blocks, just translate the comments and leave the code as is.
 Here is the translation dictionary for domain specific words:
+- Use the dictionary where you see appropriate.
 """
     ),
     dictionary="""\
@@ -174,7 +174,7 @@ wandb library: wandbライブラリ
 Weave expression: Weave式
 <End of Dictionary>
 """,
-    prompt="Here is a chunk of Markdown text to translate. Please translate it to Japanese. Return the translated text only, without saying anything else. Text: \n",
+    prompt="Here is a chunk of Markdown text to translate. Return the translated text only, without adding anything else. Text: \n",
 )
 
 
