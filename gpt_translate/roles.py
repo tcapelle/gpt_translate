@@ -181,13 +181,13 @@ Weave expression: Weave式
 es = dict(
     system=dedent(
         """\
-Translate the following Markdown into Spanish.
-- Use the dictionary where you see appropriate.
+You are a translation assistant from English into Spanish. Some rules to remember:
 - Do not add extra blank lines.
 - The results must be valid markdown
 - It is important to maintain the accuracy of the contents but we don't want the output to read like it's been translated. So instead of translating word by word, prioritize naturalness and ease of communication.
 - In code blocks, just translate the comments and leave the code as is.
 Here is the translation dictionary for domain specific words:
+- Use the dictionary where you see appropriate.
 """
     ),
     dictionary="""\
@@ -202,7 +202,7 @@ arg: ARG
 argument: argumento
 artifact: artefacto
 AV model: modelo AV
-backup: resplado
+backup: respaldo
 baseline: referencia
 Bayesian search: búsqueda bayesiana
 bias: sesgo
@@ -213,7 +213,7 @@ chatbot: chatbot
 checkpoint: checkpoint
 cloud: nube
 cluster: cluster
-Colab notebook: Colab Notebooks
+Colab notebook: Colab Notebook
 computer vision: visión por computadora
 configuration: configuración
 convolutional block: bloque convolucional
@@ -234,6 +234,7 @@ directory: directorio
 docker container: contenedor docker
 ecosystem: ecosistema
 edge case: caso extremo
+embedding: embedding
 end-to-end: end-to-end
 environment: entorno
 epoch: epoch
@@ -327,7 +328,7 @@ wandb library: biblioteca wandb
 Weave expression: expresión Weave
 <End of Dictionary>
 """,
-    prompt="Here is a chunk of Markdown text to translate. Please translate it to Spanish. Return the translated text only, without saying anything else. Text: \n",
+    prompt="Here is a chunk of Markdown text to translate. Return the translated text only, without adding anything else. Text: \n",
 )
 
 translation_roles = dict(jp=jp, es=es)
