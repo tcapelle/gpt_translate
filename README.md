@@ -26,7 +26,24 @@ to translate a full folder recursively:
 ```bash
 $ gpt_translate.folder --input_folder docs/ --out_folder docs_ja/
 ```
+If you don't know what to do, you can always do:
 
+```bash
+$ gpt_translate.folder --help
+usage: gpt_translate.folder [-h] [--docs_folder DOCS_FOLDER] [--out_folder OUT_FOLDER] [--replace]
+                            [--language LANGUAGE] [--model MODEL] [--verbose]
+
+Translate a folder to Japanese using GPT-3/4
+
+options:
+  -h, --help                 show this help message and exit
+  --docs_folder DOCS_FOLDER  Folder containing markdown files to translate (default: docs)
+  --out_folder OUT_FOLDER    Folder to save the translated files to (default: docs_jpn)
+  --replace                  Replace existing files (default: False)
+  --language LANGUAGE        Language to translate to (default: jn)
+  --model MODEL              Model to use (default: gpt-4)
+  --verbose                  Print the output (default: False)
+```
 ## Some notes about the translation
 
 - We use roles defined in [gpt_translate/roles.py](gpt_translate/roles.py) to translate the text. This steers the translation to be more natural. We also give a dictionary of words to translate to the model per translation language. This helps the model translate as we want it to.
