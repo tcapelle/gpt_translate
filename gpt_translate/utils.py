@@ -9,50 +9,7 @@ def check_file_non_empty(file: Path):
 
     return bool(lines)
 
-
-def split_markdown_file(file: Path, min_lines: int = 30):
-    with open(file, "r") as f:
-        lines = f.readlines()
-
-    # check empty file
-    if not lines:
-        return []
-
-    header_pattern = re.compile(r"^#{1,6} .*$")
-    double_or_empty_line_pattern = re.compile(r"^\s*$")
-
-    chunks = []
-    chunk = []
-    line_count = 0
-
-    for line in lines:
-        if line_count >= min_lines:
-            if header_pattern.match(line) or double_or_empty_line_pattern.match(line):
-                chunks.append("".join(chunk))
-                chunk = []
-                line_count = 0
-
-        chunk.append(line)
-        line_count += 1
-
-    # Add the last chunk
-    chunks.append("".join(chunk))
-
-    # Filter out empty chunks
-    chunks = [chunk.strip() for chunk in chunks if chunk.strip()]
-
-    return chunks
-
-
-def count_file_lines(file: Path):
-    with open(file, "r") as f:
-        lines = f.readlines()
-
-    return len(lines)
-
-
 EXTENSIONS = ["*.md", "*.mdx"]
-
 
 def get_md_files(path, extensions=EXTENSIONS):
     path = Path(path)
@@ -61,7 +18,8 @@ def get_md_files(path, extensions=EXTENSIONS):
     files = []
     for ext in extensions:
         files.extend(list(path.rglob(ext)))
-        files.sort()
+    
+    files.sort()
     return files
 
 
