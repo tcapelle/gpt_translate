@@ -8,21 +8,25 @@ from rich.progress import track
 from rich.markdown import Markdown
 from fastcore.script import call_parse, Param, store_true
 
+from langchain.document_loaders import TextLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.chat_models import ChatOpenAI
+from langchain import LLMChain
 
-from gpt_translate.roles import translation_roles, filter_dictionary
-from gpt_translate.utils import split_markdown_file, get_md_files
+from gpt_translate.utils import get_md_files
+from gpt_translate.roles import CHAT_PROMPT, DICTIONARIES
 
 console = Console()
 
 DOCS_DIR = Path("docs")
-OUTDOCS_DIR = Path("docs_jpn")
-MAX_CHUNK_LENGTH = 50
-MIN_LINE = 40
+OUTDOCS_DIR = Path("docs_ja")
+MAX_CHUNK_TOKENS = 700
 
 GPT4 = "gpt-4"  # if you have access...
 GPT3 = "gpt-3.5-turbo"
 # GPT4 = "gpt-4-32k"
 
+LANGUAGES = dict(ja= "Japanese", en= "English", es= "Spanish")
 
 def parse_model_name(model):
     "Parse the model name and return the pricing"
@@ -36,41 +40,40 @@ if not os.getenv("OPENAI_API_KEY"):
     console.print("[bold red]Please set `OPENAI_API_KEY` environment variable[/]")
     exit(1)
 
+from typing import Any
 
-def call_model(model, query, temperature=0.7, language="jp"):
-    "Call the model and return the output"
-    role = translation_roles[language]
+class MarkdownTextSplitter(RecursiveCharacterTextSplitter):
+    """A super basic Splitter that splits on newlines and spaces."""
 
-    # remove unnecessary dictionary entries from the role
-    filtered_dict = filter_dictionary(query, role["dictionary"])
-    system_role = role["system"] + filtered_dict
+    def __init__(self, **kwargs: Any):
+        """Initialize a MarkdownTextSplitter."""
+        separators = [
+            "\n\n",
+            "\n",
+            " ",
+        ]
+        super().__init__(separators=separators, **kwargs)
 
-    history = [
-        {"role": "system", "content": system_role},
-        {"role": "user", "content": role["prompt"] + "\n" + query},
-    ]
-    t0 = time.perf_counter()
-    r = openai.ChatCompletion.create(
-        model=parse_model_name(model),
-        messages=history,
-        temperature=temperature,
-    )
-    out = r["choices"][0]["message"]["content"]
-    total_time = time.perf_counter() - t0
-    console.print(f"Time taken: {total_time:.2f} seconds")
-    ptokens, ctokens = r["usage"]["prompt_tokens"], r["usage"]["completion_tokens"]
-    console.print(f"Tokens: {ptokens} / {ctokens}")
-    console.print(f"Cost: ${(ptokens*0.03+ctokens*0.06)/1000}")
-    return out
+def get_translate_chain(model_name=GPT3, chat_prompt=CHAT_PROMPT, temperature=0.7):
+    "Get a translation chain"
+    chat = ChatOpenAI(model_name=model_name, temperature=temperature)
+    chain = LLMChain(llm=chat, prompt=chat_prompt)
+    return chain
 
+class IdentityChain:
+    def __init__(self): pass
+    def run(self, text=None, **kwargs): return text
+
+def get_identity_chain():
+    return IdentityChain()
 
 def _translate_file(
     input_file,
     out_file,
     temperature=0.9,
     replace=False,
-    language="jp",
-    model=GPT4,
+    language="ja",
+    model=GPT3,
     verbose=False,
 ):
     "Translate a file to Japanese using GPT-3/4"
@@ -84,40 +87,50 @@ def _translate_file(
     out_file.touch()
 
     console.print(f"Translating {input_file} to {out_file}")
-    chunks = split_markdown_file(input_file, min_lines=MIN_LINE)
+
+    docs = TextLoader(input_file).load()
+
+    markdown_splitter = MarkdownTextSplitter(chunk_size=MAX_CHUNK_TOKENS, chunk_overlap=0)
+    chunks = markdown_splitter.split_documents(docs)
+
+    # chain = get_translate_chain(model_name=model, temperature=temperature)
+    chain = get_identity_chain()
+
     out = []
-    if chunks:
-        if len(chunks[0].split("\n")) > MAX_CHUNK_LENGTH:
-            console.print(
-                f"Skipping {input_file} as it has a chunk with more than {MAX_CHUNK_LENGTH} lines"
-            )
-            return
 
-        for i, chunk in enumerate(chunks):
-            console.print(f"Translating chunk {i+1}/{len(chunks)}")
-            try:
-                if verbose:
-                    console.print(f"Input Text:\n==============\n{chunk}")
-                out.append(
-                    call_model(model, chunk, temperature=temperature, language=language)
-                )
-                if verbose:
-                    console.print(f"Translation:\n==============\n{out[-1]}")
-            except Exception as e:
-                if "currently overloaded" in str(e):
-                    console.print("Server overloaded, waiting for 30 seconds")
-                    time.sleep(30)
-                    out.append(
-                        call_model(
-                            model, chunk, temperature=temperature, language=language
-                        )
+    for i, chunk in enumerate(chunks):
+        console.print(f"Translating chunk {i+1}/{len(chunks)}")
+        try:
+            if verbose:
+                console.print(f"Input Text:\n==============\n{chunk}")
+            out.append(
+                chain.run(
+                    input_language="English", 
+                    output_language=LANGUAGES[language], 
+                    dictionary=DICTIONARIES[language],
+                    text=chunk.page_content
                     )
-                raise e
+                
+            )
+            if verbose:
+                console.print(f"Translation:\n==============\n{out[-1]}")
+        except Exception as e:
+            if "currently overloaded" in str(e):
+                console.print("Server overloaded, waiting for 30 seconds")
+                time.sleep(30)
+                out.append(
+                    chain.run(
+                        input_language="English", 
+                        output_language=LANGUAGES[language], 
+                        dictionary=DICTIONARIES[language],
+                        text=chunk.page_content
+                        )
+                )
+            raise e
 
-        # merge the chunks
-        out = "\n".join(out)
-    else:
-        out = ""
+    # merge the chunks
+    out = "\n\n".join(out)
+
 
     with open(out_file, "w") as out_f:
         console.print(f"Saving output to {out_file}")
@@ -130,8 +143,8 @@ def translate_file(
     out_file: Param("File to save the translated file to", str),
     temperature: Param("Temperature of the model", float) = 0.9,
     replace: Param("Replace existing file", store_true) = False,
-    language: Param("Language to translate to", str) = "jp",
-    model: Param("Model to use", str) = GPT4,
+    language: Param("Language to translate to", str) = "ja",
+    model: Param("Model to use", str) = GPT3,
     verbose: Param("Print the output", store_true) = False,
 ):
     try:
@@ -147,6 +160,7 @@ def translate_file(
     except Exception as e:
         console.print(f"[bold red]Error while translating {input_file}[/]")
         console.print(e)
+        raise e
 
 
 @call_parse
