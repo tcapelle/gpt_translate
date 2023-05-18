@@ -1,11 +1,11 @@
 import os, time
 from textwrap import dedent
 from pathlib import Path
+from typing import Any
 
-import openai
+
 from rich.console import Console
 from rich.progress import track
-from rich.markdown import Markdown
 from fastcore.script import call_parse, Param, store_true
 
 from langchain.document_loaders import TextLoader
@@ -17,7 +17,7 @@ from wandb.integration.langchain import WandbTracer
 
 
 from gpt_translate.utils import get_md_files
-from gpt_translate.roles import CHAT_PROMPT, DICTIONARIES
+from gpt_translate.roles import CHAT_PROMPT, DICTIONARIES, filter_dictionary
 
 console = Console()
 
@@ -44,7 +44,6 @@ if not os.getenv("OPENAI_API_KEY"):
     console.print("[bold red]Please set `OPENAI_API_KEY` environment variable[/]")
     exit(1)
 
-from typing import Any
 
 class MarkdownTextSplitter(RecursiveCharacterTextSplitter):
     """A super basic Splitter that splits on newlines and spaces."""
@@ -106,6 +105,12 @@ def _translate_file(
 
     for i, chunk in enumerate(chunks):
         console.print(f"Translating chunk {i+1}/{len(chunks)}")
+
+        # text to translate
+        query = chunk.page_content
+
+        #filter dictionary with words from the text
+        translation_dict = filter_dictionary(query, DICTIONARIES[language])
         try:
             if verbose:
                 console.print(f"Input Text:\n==============\n{chunk}")
@@ -113,8 +118,8 @@ def _translate_file(
                 chain.run(
                     input_language="English", 
                     output_language=LANGUAGES[language], 
-                    dictionary=DICTIONARIES[language],
-                    text=chunk.page_content
+                    dictionary=translation_dict,
+                    text=query,
                     )
                 
             )
@@ -128,8 +133,8 @@ def _translate_file(
                     chain.run(
                         input_language="English", 
                         output_language=LANGUAGES[language], 
-                        dictionary=DICTIONARIES[language],
-                        text=chunk.page_content
+                        dictionary=translation_dict,
+                        text=query,
                         )
                 )
             raise e

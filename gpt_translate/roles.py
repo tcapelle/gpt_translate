@@ -6,22 +6,14 @@ from langchain.prompts.chat import (
     HumanMessagePromptTemplate,
 )
 
-END_DICT = "Keep in mind all the instructions above when translating documents."
-
-
 def filter_dictionary(query, dictionary):
     "Filter out words from the query that are not in the dictionary"
     dictionary = dictionary.split("\n")
-    filtered_dict = [
-        dictionary[0],
-    ]
+    filtered_dict = []
     for line in dictionary:
         dict_word = line.split(":")[0].lower()
         if any([w in query.lower() for w in dict_word.split(" ")]):
             filtered_dict.append(line)
-    filtered_dict.append(dictionary[-2])
-
-    filtered_dict.append(END_DICT)
     return "\n".join(filtered_dict)
 
 
@@ -40,7 +32,10 @@ Here is the translation dictionary for domain specific words:
 
 system_message_prompt = SystemMessagePromptTemplate.from_template(system_template)
 
-human_template = "Here is a chunk of Markdown text to translate. Return the translated text only, without adding anything else. Text: \n {text}"
+human_template = """Here is a chunk of Markdown text to translate. Return the translated text only, without adding anything else. 
+<Text>
+{text}
+<End of Text>"""
 human_message_prompt = HumanMessagePromptTemplate.from_template(human_template)
 
 CHAT_PROMPT = ChatPromptTemplate.from_messages([system_message_prompt, human_message_prompt])

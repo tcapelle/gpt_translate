@@ -53,11 +53,3 @@ def maybe_remove_odd_lines(path, verbose=False, pct=0.5):
     else:
         if verbose:
             print(f"Skipping: {path}")
-                            
-
-if __name__ == "__main__":
-    chunks = split_markdown_file("docs/intro.md")
-
-    print(chunks[0])
-    print(len(chunks[0]))
-    print(len(chunks))
