@@ -13,6 +13,9 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.chat_models import ChatOpenAI
 from langchain import LLMChain
 
+from wandb.integration.langchain import WandbTracer
+
+
 from gpt_translate.utils import get_md_files
 from gpt_translate.roles import CHAT_PROMPT, DICTIONARIES
 
@@ -20,7 +23,8 @@ console = Console()
 
 DOCS_DIR = Path("docs")
 OUTDOCS_DIR = Path("docs_ja")
-MAX_CHUNK_TOKENS = 700
+MAX_CHUNK_TOKENS = 1000
+TIMEOUT = 600
 
 GPT4 = "gpt-4"  # if you have access...
 GPT3 = "gpt-3.5-turbo"
@@ -56,7 +60,9 @@ class MarkdownTextSplitter(RecursiveCharacterTextSplitter):
 
 def get_translate_chain(model_name=GPT3, chat_prompt=CHAT_PROMPT, temperature=0.7):
     "Get a translation chain"
-    chat = ChatOpenAI(model_name=model_name, temperature=temperature)
+    chat = ChatOpenAI(model_name=model_name, 
+                      temperature=temperature, 
+                      request_timeout=TIMEOUT)
     chain = LLMChain(llm=chat, prompt=chat_prompt)
     return chain
 
@@ -93,8 +99,8 @@ def _translate_file(
     markdown_splitter = MarkdownTextSplitter(chunk_size=MAX_CHUNK_TOKENS, chunk_overlap=0)
     chunks = markdown_splitter.split_documents(docs)
 
-    # chain = get_translate_chain(model_name=model, temperature=temperature)
-    chain = get_identity_chain()
+    chain = get_translate_chain(model_name=model, temperature=temperature)
+    # chain = get_identity_chain()
 
     out = []
 
@@ -148,6 +154,7 @@ def translate_file(
     verbose: Param("Print the output", store_true) = False,
 ):
     try:
+        WandbTracer.init({"project": "docs_translate", "group":language})
         _translate_file(
             Path(input_file),
             Path(out_file),
@@ -157,11 +164,12 @@ def translate_file(
             model=model,
             verbose=verbose,
         )
+        WandbTracer.finish()
     except Exception as e:
         console.print(f"[bold red]Error while translating {input_file}[/]")
         console.print(e)
         raise e
-
+    
 
 @call_parse
 def translate_folder(
