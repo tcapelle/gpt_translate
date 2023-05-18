@@ -22,6 +22,8 @@ setup(
         "rich",
         "openai",
         "fastcore",
+        "langchain",
+        "wandb"
     ],
     classifiers=[
         "Development Status :: 4 - Beta",
