@@ -3,6 +3,7 @@ docs_jpn/
 
 # python
 *.pyc
+.pytest_cache/
 
 # build
 build/
@@ -11,3 +12,7 @@ dist/
 
 # vscode
 .vscode/
+
+# wandb
+wandb/
+

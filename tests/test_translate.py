@@ -1,4 +1,4 @@
-from gpt_translate.translate import parse_model_name, call_model
+from gpt_translate.translate import get_identity_chain
 
 
 def test_parse_model_name():

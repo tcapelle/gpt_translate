@@ -1,39 +1,50 @@
 from textwrap import dedent
 
-END_DICT = "Keep in mind all the instructions above when translating documents."
+from langchain.prompts.chat import (
+    ChatPromptTemplate,
+    SystemMessagePromptTemplate,
+    HumanMessagePromptTemplate,
+)
 
 
 def filter_dictionary(query, dictionary):
     "Filter out words from the query that are not in the dictionary"
     dictionary = dictionary.split("\n")
-    filtered_dict = [
-        dictionary[0],
-    ]
+    filtered_dict = []
     for line in dictionary:
         dict_word = line.split(":")[0].lower()
-        if any([w in query.lower() for w in dict_word.split(" ")]):
+        if dict_word in query.lower():
             filtered_dict.append(line)
-    filtered_dict.append(dictionary[-2])
-
-    filtered_dict.append(END_DICT)
     return "\n".join(filtered_dict)
 
 
-jp = dict(
-    system=dedent(
-        """\
-You are a translation assistant from English into Japanese. Some rules to remember:
+system_template = """You are a translation assistant from {input_language} to {output_language}. Some rules to remember:
 - Do not add extra blank lines.
 - The results must be valid markdown
 - It is important to maintain the accuracy of the contents but we don't want the output to read like it's been translated. So instead of translating word by word, prioritize naturalness and ease of communication.
 - In code blocks, just translate the comments and leave the code as is.
 Here is the translation dictionary for domain specific words:
 - Use the dictionary where you see appropriate.
-"""
-    ),
-    dictionary="""\
 <Dictionary start>
-English Japanese
+{input_language}: {output_language}
+{dictionary}
+<End of Dictionary>
+"""
+
+system_message_prompt = SystemMessagePromptTemplate.from_template(system_template)
+
+human_template = """Here is a chunk of Markdown text to translate. Return the translated text only, without adding anything else. 
+<Text>
+{text}
+<End of Text>"""
+human_message_prompt = HumanMessagePromptTemplate.from_template(human_template)
+
+CHAT_PROMPT = ChatPromptTemplate.from_messages(
+    [system_message_prompt, human_message_prompt]
+)
+
+DICTIONARIES = dict(
+    ja="""\
 access: アクセス
 accuracy plot: 精度図
 address: アドレス
@@ -172,27 +183,8 @@ versioning: バージョン管理
 W&B Fully Connected: W&B Fully Connected
 wandb library: wandbライブラリ
 Weave expression: Weave式
-<End of Dictionary>
 """,
-    prompt="Here is a chunk of Markdown text to translate. Return the translated text only, without adding anything else. Text: \n",
-)
-
-
-es = dict(
-    system=dedent(
-        """\
-You are a translation assistant from English into Spanish. Some rules to remember:
-- Do not add extra blank lines.
-- The results must be valid markdown
-- It is important to maintain the accuracy of the contents but we don't want the output to read like it's been translated. So instead of translating word by word, prioritize naturalness and ease of communication.
-- In code blocks, just translate the comments and leave the code as is.
-Here is the translation dictionary for domain specific words:
-- Use the dictionary where you see appropriate.
-"""
-    ),
-    dictionary="""\
-<Dictionary start>
-English Spanish
+    es="""\
 accuracy plot: gráfica de precisión
 address: dirección
 alias: alias
@@ -326,17 +318,5 @@ versioning: versionamiento
 W&B Fully Connected: W&B Fully Connected
 wandb library: biblioteca wandb
 Weave expression: expresión Weave
-<End of Dictionary>
 """,
-    prompt="Here is a chunk of Markdown text to translate. Return the translated text only, without adding anything else. Text: \n",
 )
-
-translation_roles = dict(jp=jp, es=es)
-
-if __name__ == "__main__":
-    out = filter_dictionary(
-        "Creating a colab is an easy way to do parameter sweeps", jp["dictionary"]
-    )
-    print(out)
-    with open("jp.txt", "w") as f:
-        pass

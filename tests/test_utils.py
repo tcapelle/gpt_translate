@@ -1,4 +1,4 @@
-from gpt_translate.utils import check_file_non_empty, split_markdown_file
+from gpt_translate.utils import check_file_non_empty, get_md_files
 
 
 def test_empty_file():
@@ -7,17 +7,20 @@ def test_empty_file():
     assert check_file_non_empty("tests/data/intro.md")
 
 
-def test_split_markdown_file():
-    "Check that splits work!"
-    chunks = split_markdown_file("tests/data/intro.md", min_lines=10)
-    assert len(chunks) == 3
-    first_chunk_last_line = "<!-- ![](@site/static/images/general/diagram_2021.png) -->"
-    assert chunks[0].split("\n")[-1] == first_chunk_last_line
-    assert len(chunks[0].split("\n")) == 11
+def test_get_md_files():
+    "Check that we get the right files"
+    files = get_md_files("tests/data")
+    assert len(files) == 2
+    assert files[0].name == "empty.md"
 
-    second_chunk_last_line = "1. View the [API Reference guide](../ref/README.md) for technical specifications about the W&B Python Library, CLI, and Weave operations."
-    assert chunks[1].split("\n")[-1] == second_chunk_last_line
-    assert len(chunks[0].split("\n")) == 11
+    # Check that we can get a single file
+    file = get_md_files("tests/data/intro.md")
+    assert len(file) == 1
 
-    last_chunk_last_line = "7. Organize W&B Runs, embed and automate visualizations, describe your findings, and share updates with collaborators with [Reports](./reports/intro.md)."
-    assert chunks[2].split("\n")[-1] == last_chunk_last_line
+    # Check that we can get a single file with a glob
+    none_files = get_md_files("tests/data", files_glob="*.txt")
+    assert len(none_files) == 0
+
+    # Check that we can get a single file with a regex
+    file_re = get_md_files("tests/data", file_re="intro")
+    assert len(file_re) == 1
