@@ -1,4 +1,4 @@
-[![PyPI version](https://badge.fury.io/py/termgpt.svg)](https://badge.fury.io/py/termgpt)
+[![PyPI version](https://badge.fury.io/py/termgpt.svg)](https://badge.fury.io/py/gpt_translate)
 
 # gpt_translate
 
