@@ -1,3 +1,4 @@
+from textwrap import dedent
 from gpt_translate.roles import filter_dictionary, DICTIONARIES
 
 ES_DICT = DICTIONARIES["es"]
@@ -10,4 +11,12 @@ def test_filter_dictionary():
     """
 
     fdict = filter_dictionary(en_text, ES_DICT)
-    print(fdict)
+    test_fdict=dedent("""\
+        API key: clave API
+        artifact: artefacto
+        Bayesian search: búsqueda bayesiana
+        bias: sesgo
+        key: clave
+        server: servidor
+        """)
+    assert fdict == test_fdict

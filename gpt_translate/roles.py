@@ -12,7 +12,7 @@ def filter_dictionary(query, dictionary):
     filtered_dict = []
     for line in dictionary:
         dict_word = line.split(":")[0].lower()
-        if any([w in query.lower() for w in dict_word.split(" ")]):
+        if dict_word in query.lower():
             filtered_dict.append(line)
     return "\n".join(filtered_dict)
 
