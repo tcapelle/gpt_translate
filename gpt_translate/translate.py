@@ -6,6 +6,7 @@ from typing import Any
 
 from rich.console import Console
 from rich.progress import track
+from rich.markdown import Markdown
 from fastcore.script import call_parse, Param, store_true
 
 from langchain.document_loaders import TextLoader
@@ -25,6 +26,7 @@ DOCS_DIR = Path("docs")
 OUTDOCS_DIR = Path("docs_ja")
 MAX_CHUNK_TOKENS = 1000
 TIMEOUT = 600
+TEMPERATURE = 0.7
 
 GPT4 = "gpt-4"  # if you have access...
 GPT3 = "gpt-3.5-turbo"
@@ -57,7 +59,7 @@ class MarkdownTextSplitter(RecursiveCharacterTextSplitter):
         ]
         super().__init__(separators=separators, **kwargs)
 
-def get_translate_chain(model_name=GPT3, chat_prompt=CHAT_PROMPT, temperature=0.7):
+def get_translate_chain(model_name=GPT3, chat_prompt=CHAT_PROMPT, temperature=TEMPERATURE):
     "Get a translation chain"
     chat = ChatOpenAI(model_name=model_name, 
                       temperature=temperature, 
@@ -75,7 +77,8 @@ def get_identity_chain():
 def _translate_file(
     input_file,
     out_file,
-    temperature=0.9,
+    temperature=TEMPERATURE,
+    max_chunk_tokens=MAX_CHUNK_TOKENS,
     replace=False,
     language="ja",
     model=GPT3,
@@ -95,7 +98,7 @@ def _translate_file(
 
     docs = TextLoader(input_file).load()
 
-    markdown_splitter = MarkdownTextSplitter(chunk_size=MAX_CHUNK_TOKENS, chunk_overlap=0)
+    markdown_splitter = MarkdownTextSplitter(chunk_size=max_chunk_tokens, chunk_overlap=0)
     chunks = markdown_splitter.split_documents(docs)
 
     chain = get_translate_chain(model_name=model, temperature=temperature)
@@ -113,7 +116,7 @@ def _translate_file(
         translation_dict = filter_dictionary(query, DICTIONARIES[language])
         try:
             if verbose:
-                console.print(f"Input Text:\n==============\n{chunk}")
+                console.print(Markdown(f"Input Text:\n==============\n{chunk}"))
             out.append(
                 chain.run(
                     input_language="English", 
@@ -121,10 +124,9 @@ def _translate_file(
                     dictionary=translation_dict,
                     text=query,
                     )
-                
             )
             if verbose:
-                console.print(f"Translation:\n==============\n{out[-1]}")
+                console.print(Markdown(f"Translation:\n==============\n{out[-1]}"))
         except Exception as e:
             if "currently overloaded" in str(e):
                 console.print("Server overloaded, waiting for 30 seconds")
@@ -152,7 +154,8 @@ def _translate_file(
 def translate_file(
     input_file: Param("File to translate", str),
     out_file: Param("File to save the translated file to", str),
-    temperature: Param("Temperature of the model", float) = 0.9,
+    temperature: Param("Temperature of the model", float) = TEMPERATURE,
+    max_chunk_tokens: Param("Max tokens per chunk", int) = MAX_CHUNK_TOKENS,
     replace: Param("Replace existing file", store_true) = False,
     language: Param("Language to translate to", str) = "ja",
     model: Param("Model to use", str) = GPT3,
@@ -164,6 +167,7 @@ def translate_file(
             Path(input_file),
             Path(out_file),
             temperature=temperature,
+            max_chunk_tokens=max_chunk_tokens,
             replace=replace,
             language=language,
             model=model,
@@ -180,10 +184,14 @@ def translate_file(
 def translate_folder(
     docs_folder: Param("Folder containing markdown files to translate", str) = DOCS_DIR,
     out_folder: Param("Folder to save the translated files to", str) = OUTDOCS_DIR,
+    temperature: Param("Temperature of the model", float) = TEMPERATURE,
+    max_chunk_tokens: Param("Max tokens per chunk", int) = MAX_CHUNK_TOKENS,
     replace: Param("Replace existing files", store_true) = False,
     language: Param("Language to translate to", str) = "jn",
     model: Param("Model to use", str) = GPT4,
     verbose: Param("Print the output", store_true) = False,
+    file_ext: Param("File extension to filter files", str) = "*.md",
+    file_re: Param("Regex to filter files", str) = None,
 ):
     "Translate a folder to Japanese using GPT-3/4"
     docs_folder = Path(docs_folder)
@@ -202,7 +210,7 @@ def translate_folder(
 
     out_folder.mkdir(exist_ok=True)
 
-    files = get_md_files(docs_folder)
+    files = get_md_files(docs_folder, files_glob=file_ext, file_re=file_re)
 
     console.print(f"found {len(files)} files to translate")
 
@@ -213,6 +221,8 @@ def translate_folder(
             _translate_file(
                 input_file,
                 out_file,
+                temperature=temperature,
+                max_chunk_tokens=max_chunk_tokens,
                 replace=replace,
                 language=language,
                 model=model,
