@@ -1,5 +1,7 @@
 import re
 from fastcore.script import call_parse, Param, store_true
+from fastcore.xtras import globtastic
+
 from pathlib import Path
 
 
@@ -9,18 +11,13 @@ def check_file_non_empty(file: Path):
 
     return bool(lines)
 
-EXTENSIONS = ["*.md", "*.mdx"]
 
-def get_md_files(path, extensions=EXTENSIONS):
+def get_md_files(path: Path | str, files_glob: str="*.md", file_re: str=None):
     path = Path(path)
     if path.is_file():
         return [path]
-    files = []
-    for ext in extensions:
-        files.extend(list(path.rglob(ext)))
-    
-    files.sort()
-    return files
+    files = globtastic(path, file_glob=files_glob, file_re=file_re)
+    return [Path(f) for f in files.sorted()]
 
 
 @call_parse
