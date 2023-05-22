@@ -12,7 +12,7 @@ def check_file_non_empty(file: Path):
     return bool(lines)
 
 
-def get_md_files(path: Path | str, files_glob: str="*.md", file_re: str=None):
+def get_md_files(path: Path | str, files_glob: str = "*.md", file_re: str = None):
     path = Path(path)
     if path.is_file():
         return [path]
@@ -30,6 +30,7 @@ def delete_empty_files(
             if verbose:
                 print(f"Deleting {f}")
             f.unlink()
+
 
 def remove_newline(path, verbose=False, pct=0.5):
     for file in get_md_files(path):

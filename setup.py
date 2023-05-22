@@ -7,7 +7,7 @@ setup(
     packages=find_packages(),
     version=__version__,
     license="MIT",
-    description="A tool to translate docodile docs to Japanese",
+    description="A tool to translate markdown files using GPT-X",
     author="Thomas Capelle",
     author_email="tcapelle@pm.me",
     url="https://github.com/tcapelle/gpt_translate",
@@ -18,13 +18,7 @@ setup(
         "natural language processing",
         "openai",
     ],
-    install_requires=[
-        "rich",
-        "openai",
-        "fastcore",
-        "langchain",
-        "wandb"
-    ],
+    install_requires=["rich", "openai", "fastcore", "langchain", "wandb"],
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",

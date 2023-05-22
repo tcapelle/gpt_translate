@@ -6,6 +6,7 @@ from langchain.prompts.chat import (
     HumanMessagePromptTemplate,
 )
 
+
 def filter_dictionary(query, dictionary):
     "Filter out words from the query that are not in the dictionary"
     dictionary = dictionary.split("\n")
@@ -38,7 +39,9 @@ human_template = """Here is a chunk of Markdown text to translate. Return the tr
 <End of Text>"""
 human_message_prompt = HumanMessagePromptTemplate.from_template(human_template)
 
-CHAT_PROMPT = ChatPromptTemplate.from_messages([system_message_prompt, human_message_prompt])
+CHAT_PROMPT = ChatPromptTemplate.from_messages(
+    [system_message_prompt, human_message_prompt]
+)
 
 DICTIONARIES = dict(
     ja="""\

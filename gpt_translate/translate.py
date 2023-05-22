@@ -32,7 +32,8 @@ GPT4 = "gpt-4"  # if you have access...
 GPT3 = "gpt-3.5-turbo"
 # GPT4 = "gpt-4-32k"
 
-LANGUAGES = dict(ja= "Japanese", en= "English", es= "Spanish")
+LANGUAGES = dict(ja="Japanese", en="English", es="Spanish")
+
 
 def parse_model_name(model):
     "Parse the model name and return the pricing"
@@ -59,20 +60,29 @@ class MarkdownTextSplitter(RecursiveCharacterTextSplitter):
         ]
         super().__init__(separators=separators, **kwargs)
 
-def get_translate_chain(model_name=GPT3, chat_prompt=CHAT_PROMPT, temperature=TEMPERATURE):
+
+def get_translate_chain(
+    model_name=GPT3, chat_prompt=CHAT_PROMPT, temperature=TEMPERATURE
+):
     "Get a translation chain"
-    chat = ChatOpenAI(model_name=model_name, 
-                      temperature=temperature, 
-                      request_timeout=TIMEOUT)
+    chat = ChatOpenAI(
+        model_name=model_name, temperature=temperature, request_timeout=TIMEOUT
+    )
     chain = LLMChain(llm=chat, prompt=chat_prompt)
     return chain
 
+
 class IdentityChain:
-    def __init__(self): pass
-    def run(self, text=None, **kwargs): return text
+    def __init__(self):
+        pass
+
+    def run(self, text=None, **kwargs):
+        return text
+
 
 def get_identity_chain():
     return IdentityChain()
+
 
 def _translate_file(
     input_file,
@@ -98,7 +108,9 @@ def _translate_file(
 
     docs = TextLoader(input_file).load()
 
-    markdown_splitter = MarkdownTextSplitter(chunk_size=max_chunk_tokens, chunk_overlap=0)
+    markdown_splitter = MarkdownTextSplitter(
+        chunk_size=max_chunk_tokens, chunk_overlap=0
+    )
     chunks = markdown_splitter.split_documents(docs)
 
     chain = get_translate_chain(model_name=model, temperature=temperature)
@@ -112,18 +124,18 @@ def _translate_file(
         # text to translate
         query = chunk.page_content
 
-        #filter dictionary with words from the text
+        # filter dictionary with words from the text
         translation_dict = filter_dictionary(query, DICTIONARIES[language])
         try:
             if verbose:
                 console.print(Markdown(f"Input Text:\n==============\n{chunk}"))
             out.append(
                 chain.run(
-                    input_language="English", 
-                    output_language=LANGUAGES[language], 
+                    input_language="English",
+                    output_language=LANGUAGES[language],
                     dictionary=translation_dict,
                     text=query,
-                    )
+                )
             )
             if verbose:
                 console.print(Markdown(f"Translation:\n==============\n{out[-1]}"))
@@ -133,17 +145,16 @@ def _translate_file(
                 time.sleep(30)
                 out.append(
                     chain.run(
-                        input_language="English", 
-                        output_language=LANGUAGES[language], 
+                        input_language="English",
+                        output_language=LANGUAGES[language],
                         dictionary=translation_dict,
                         text=query,
-                        )
+                    )
                 )
             raise e
 
     # merge the chunks
     out = "\n\n".join(out)
-
 
     with open(out_file, "w") as out_f:
         console.print(f"Saving output to {out_file}")
@@ -162,7 +173,7 @@ def translate_file(
     verbose: Param("Print the output", store_true) = False,
 ):
     try:
-        WandbTracer.init({"project": "docs_translate", "group":language})
+        WandbTracer.init({"project": "docs_translate", "group": language})
         _translate_file(
             Path(input_file),
             Path(out_file),
@@ -178,7 +189,7 @@ def translate_file(
         console.print(f"[bold red]Error while translating {input_file}[/]")
         console.print(e)
         raise e
-    
+
 
 @call_parse
 def translate_folder(

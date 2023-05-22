@@ -6,12 +6,13 @@ def test_empty_file():
     assert not check_file_non_empty("tests/data/empty.md")
     assert check_file_non_empty("tests/data/intro.md")
 
+
 def test_get_md_files():
     "Check that we get the right files"
     files = get_md_files("tests/data")
     assert len(files) == 2
     assert files[0].name == "empty.md"
-    
+
     # Check that we can get a single file
     file = get_md_files("tests/data/intro.md")
     assert len(file) == 1
