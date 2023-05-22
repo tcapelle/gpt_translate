@@ -1,0 +1,5 @@
+rich
+openai
+fastcore
+langchain
+wandb
