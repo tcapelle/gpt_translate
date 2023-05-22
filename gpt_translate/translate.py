@@ -42,12 +42,6 @@ def parse_model_name(model):
     elif "3.5" in model:
         return GPT3
 
-
-if not os.getenv("OPENAI_API_KEY"):
-    console.print("[bold red]Please set `OPENAI_API_KEY` environment variable[/]")
-    exit(1)
-
-
 class MarkdownTextSplitter(RecursiveCharacterTextSplitter):
     """A super basic Splitter that splits on newlines and spaces."""
 
@@ -65,6 +59,9 @@ def get_translate_chain(
     model_name=GPT3, chat_prompt=CHAT_PROMPT, temperature=TEMPERATURE
 ):
     "Get a translation chain"
+    if not os.getenv("OPENAI_API_KEY"):
+        console.print("[bold red]Please set `OPENAI_API_KEY` environment variable[/]")
+        exit(1)
     chat = ChatOpenAI(
         model_name=model_name, temperature=temperature, request_timeout=TIMEOUT
     )
