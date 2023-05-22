@@ -1,4 +1,7 @@
+[![PyPI version](https://badge.fury.io/py/termgpt.svg)](https://badge.fury.io/py/termgpt)
+
 # gpt_translate
+
 
 This is a tool to translate the language in Markdown files.
 
