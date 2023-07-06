@@ -35,10 +35,10 @@ def delete_empty_files(
 def remove_newline(path, verbose=False, pct=0.5):
     for file in get_md_files(path):
         if check_file_non_empty(file):
-            maybe_remove_odd_lines(file, verbose=verbose, pct=pct)
+            _maybe_remove_odd_lines(file, verbose=verbose, pct=pct)
 
 
-def maybe_remove_odd_lines(path, verbose=False, pct=0.5):
+def _maybe_remove_odd_lines(path, verbose=False, pct=0.5):
     with open(path, "r") as f:
         lines = f.readlines()
     if len([line for line in lines if line == "\n"]) / len(lines) > pct:
