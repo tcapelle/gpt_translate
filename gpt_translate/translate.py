@@ -1,4 +1,4 @@
-import json
+import yaml
 from pathlib import Path
 from openai import OpenAI
 from tenacity import (
@@ -20,15 +20,15 @@ MAX_CHUNK_TOKENS = 1000
 def completion_with_backoff(**kwargs):
     return client.chat.completions.create(**kwargs)
 
-def translate_chunk(chunk:str, prompt:PromptTemplate):
+def translate_chunk(chunk:str, prompt:PromptTemplate, **model_args):
     """Translate a markdown chunk
     chunk: markdown chunk
     prompt: PromptTemplate object
     return: translated chunk
     """
     res = completion_with_backoff(
-        model="gpt-4", 
-        messages=prompt.format(md_chunk=chunk))
+        messages=prompt.format(md_chunk=chunk), 
+        **model_args)
 
     return res.choices[0].message.content
 
@@ -37,12 +37,15 @@ def translate_splitted_md(
         splitted_markdown:list[str], 
         prompt:PromptTemplate, 
         max_chunk_tokens:int=MAX_CHUNK_TOKENS, 
-        sep:str="\n\n")->str:
+        sep:str="\n\n",
+        **model_args,
+        )->str:
     """Translate a list of markdown chunks
     splitted_markdown: list of markdown chunks
     prompt: PromptTemplate object
     max_chunk_tokens: maximum number of tokens per chunk
     sep: separator between chunks
+    model_args: arguments to pass to the completion_with_backoff function
     return: translated markdown file
     """
 
@@ -60,7 +63,7 @@ def translate_splitted_md(
             packed_chunks_len += n_tokens
         else:
             print(f">> Translating {packed_chunks_len} tokens")
-            t_chunk = translate_chunk(packed_chunks, prompt)
+            t_chunk = translate_chunk(packed_chunks, prompt, **model_args)
             translated_file += sep + t_chunk
             print(f"Packing chunk {i} with {n_tokens} tokens")
             packed_chunks = chunk
@@ -82,6 +85,8 @@ class Translator:
             self.config_folder / f"language_dicts/{language}.yaml"
         )
         self.max_chunk_tokens = max_chunk_tokens
+        with open(self.config_folder / "model_config.yaml", 'r') as file:
+            self.model_args = yaml.safe_load(file)
     
     def translate_file(self, md_file:str, remove_comments:bool=True):
         """Translate a markdown file"""
@@ -92,7 +97,8 @@ class Translator:
         chunks = split_markdown(md_content)
         translated_file = translate_splitted_md(chunks,
                                                 self.prompt_template,
-                                                max_chunk_tokens=self.max_chunk_tokens)
+                                                max_chunk_tokens=self.max_chunk_tokens,
+                                                **self.model_args)
         return translated_file
 
 def _translate_file(
@@ -105,7 +111,7 @@ def _translate_file(
     remove_comments: bool = True, # Remove comments
 ):
     """Translate a markdown file"""
-    if not file_is_empty(input_file):
+    if file_is_empty(input_file):
         raise ValueError(f"File {input_file} is empty")
 
     if Path(out_file).exists() and not replace and not file_is_empty(out_file):
@@ -156,9 +162,6 @@ def translate_folder(
             translated_files[str(md_file)] = str(out_file)
         except Exception as e:
             print(f"Error translating {md_file}: {e}")
-
-    with open("translated_files.json", "w") as f:
-        json.dump(translated_files, f, indent=4)
 
     print(f"Total Translated: {len(translated_files)}\nSkipped: {len(get_md_files(input_folder)) - len(translated_files)}")
 
