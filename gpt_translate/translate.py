@@ -70,7 +70,7 @@ def translate_splitted_md(
             packed_chunks_len = n_tokens
     
     print(f">> Translating {packed_chunks_len} tokens (last chunk)")
-    t_chunk = translate_chunk(packed_chunks, prompt)
+    t_chunk = translate_chunk(packed_chunks, prompt, **model_args)
     translated_file += sep + t_chunk
 
     return translated_file
@@ -87,6 +87,7 @@ class Translator:
         self.max_chunk_tokens = max_chunk_tokens
         with open(self.config_folder / "model_config.yaml", 'r') as file:
             self.model_args = yaml.safe_load(file)
+            print(f"Model args: {self.model_args}")
     
     def translate_file(self, md_file:str, remove_comments:bool=True):
         """Translate a markdown file"""
