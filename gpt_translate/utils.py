@@ -1,4 +1,6 @@
 import re
+import time
+
 import tiktoken
 
 from fastcore.script import call_parse, Param, store_true
@@ -6,6 +8,16 @@ from fastcore.xtras import globtastic
 
 from pathlib import Path
 
+
+def measure_execution_time(func):
+    def wrapper(*args, **kwargs):
+        start_time = time.perf_counter()
+        result = func(*args, **kwargs)
+        end_time = time.perf_counter()
+        elapsed_time = end_time - start_time
+        print(f"Function {func.__name__} took {elapsed_time:.4f} seconds to execute.")
+        return result
+    return wrapper
 
 def check_file_non_empty(file: Path):
     with open(file, "r") as f:
