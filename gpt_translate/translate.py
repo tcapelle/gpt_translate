@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from openai import OpenAI
 from tenacity import (
@@ -5,10 +6,11 @@ from tenacity import (
     stop_after_attempt,
     wait_random_exponential, # for exponential backoff
 )
+from fastcore.script import call_parse, Param, store_true
 
 from gpt_translate.prompts import PromptTemplate
 from gpt_translate.loader import remove_markdown_comments, split_markdown
-from gpt_translate.utils import count_tokens, measure_execution_time
+from gpt_translate.utils import count_tokens, measure_execution_time, get_md_files, file_is_empty
 
 client = OpenAI()
 
@@ -63,6 +65,10 @@ def translate_splitted_md(
             print(f"Packing chunk {i} with {n_tokens} tokens")
             packed_chunks = chunk
             packed_chunks_len = n_tokens
+    
+    print(f">> Translating {packed_chunks_len} tokens (last chunk)")
+    t_chunk = translate_chunk(packed_chunks, prompt)
+    translated_file += sep + t_chunk
 
     return translated_file
 class Translator:
@@ -88,3 +94,72 @@ class Translator:
                                                 self.prompt_template,
                                                 max_chunk_tokens=self.max_chunk_tokens)
         return translated_file
+
+def _translate_file(
+    input_file: str, # File to translate
+    out_file: str, # File to save the translated file to
+    max_chunk_tokens: int = MAX_CHUNK_TOKENS, # Max tokens per chunk
+    replace: bool = False, # Replace existing file
+    language: str = "es", # Language to translate to
+    config_folder: str = "./configs", # Config folder
+    remove_comments: bool = True, # Remove comments
+):
+    """Translate a markdown file"""
+    if not file_is_empty(input_file):
+        raise ValueError(f"File {input_file} is empty")
+
+    if Path(out_file).exists() and not replace and not file_is_empty(out_file):
+        raise FileExistsError(f"File {out_file} already exists. Use --replace to overwrite.")
+    else:
+        translator = Translator(config_folder, language, max_chunk_tokens)
+        translated_file = translator.translate_file(input_file, remove_comments)
+        with open(out_file, "w") as f:
+            f.write(translated_file)
+        print(f"Translated file saved to {out_file}")
+
+
+@call_parse
+def translate_file(
+    input_file: Param("File to translate", str),
+    out_file: Param("File to save the translated file to", str),
+    max_chunk_tokens: Param("Max tokens per chunk", int) = MAX_CHUNK_TOKENS,
+    replace: Param("Replace existing file", store_true) = False,
+    language: Param("Language to translate to", str) = "es",
+    config_folder: Param("Config folder", str) = "./configs",
+    remove_comments: Param("Remove comments", store_true) = True,
+):
+    _translate_file(input_file, out_file, max_chunk_tokens, replace, language, config_folder, remove_comments)
+
+@call_parse
+def translate_folder(
+    input_folder: Param("Folder to translate", str),
+    out_folder: Param("Folder to save the translated files to", str),
+    max_chunk_tokens: Param("Max tokens per chunk", int) = MAX_CHUNK_TOKENS,
+    replace: Param("Replace existing files", store_true) = False,
+    language: Param("Language to translate to", str) = "es",
+    config_folder: Param("Config folder", str) = "./configs",
+    remove_comments: Param("Remove comments", store_true) = True,
+):
+    """Translate all markdown files in a folder respecting the folder hierarchy"""
+    input_folder = Path(input_folder)
+    out_folder = Path(out_folder)
+    if not input_folder.is_dir():
+        raise ValueError(f"{input_folder} is not a folder")
+
+    translated_files = {}
+    
+    for md_file in get_md_files(input_folder):
+        out_file = out_folder / md_file.relative_to(input_folder)
+        out_file.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            _translate_file(str(md_file), str(out_file), max_chunk_tokens, replace, language, config_folder, remove_comments)
+            translated_files[str(md_file)] = str(out_file)
+        except Exception as e:
+            print(f"Error translating {md_file}: {e}")
+
+    with open("translated_files.json", "w") as f:
+        json.dump(translated_files, f, indent=4)
+
+    print(f"Total Translated: {len(translated_files)}\nSkipped: {len(get_md_files(input_folder)) - len(translated_files)}")
+
+
