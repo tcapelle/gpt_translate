@@ -1,5 +1,6 @@
 docs/
-docs_jpn/
+docs_ja/
+docs_es/
 
 # python
 *.pyc

@@ -1,5 +1,5 @@
 from textwrap import dedent
-from gpt_translate.roles import filter_dictionary, DICTIONARIES
+from gpt_translate.prompts import filter_dictionary, DICTIONARIES
 
 ES_DICT = DICTIONARIES["es"]
 

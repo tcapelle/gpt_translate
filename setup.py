@@ -7,7 +7,7 @@ setup(
     packages=find_packages(),
     version=__version__,
     license="MIT",
-    description="A tool to translate markdown files using GPT-X",
+    description="A tool to translate markdown files using GPT-4",
     author="Thomas Capelle",
     author_email="tcapelle@pm.me",
     url="https://github.com/tcapelle/gpt_translate",
@@ -30,7 +30,6 @@ setup(
         "console_scripts": [
             "gpt_translate.file=gpt_translate.translate:translate_file",
             "gpt_translate.folder=gpt_translate.translate:translate_folder",
-            "gpt_translate.delete_empty_files=gpt_translate.utils:delete_empty_files",
         ]
     },
 )

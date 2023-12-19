@@ -1,242 +1,169 @@
-import os, time
-from textwrap import dedent
+import yaml
 from pathlib import Path
-from typing import Any
-
-
-from rich.console import Console
-from rich.progress import track
-from rich.markdown import Markdown
+from openai import OpenAI
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_random_exponential, # for exponential backoff
+)
 from fastcore.script import call_parse, Param, store_true
 
-from langchain.document_loaders import TextLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.chat_models import ChatOpenAI
-from langchain import LLMChain
+from gpt_translate.prompts import PromptTemplate
+from gpt_translate.loader import remove_markdown_comments, split_markdown
+from gpt_translate.utils import count_tokens, measure_execution_time, get_md_files, file_is_empty
 
-from wandb.integration.langchain import WandbTracer
+client = OpenAI()
 
-
-from gpt_translate.utils import get_md_files
-from gpt_translate.roles import CHAT_PROMPT, DICTIONARIES, filter_dictionary
-
-console = Console()
-
-DOCS_DIR = Path("docs")
-OUTDOCS_DIR = Path("docs_ja")
 MAX_CHUNK_TOKENS = 1000
-TIMEOUT = 600
-TEMPERATURE = 0.7
 
-GPT4 = "gpt-4"  # if you have access...
-GPT3 = "gpt-3.5-turbo"
-# GPT4 = "gpt-4-32k"
+@retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
+def completion_with_backoff(**kwargs):
+    return client.chat.completions.create(**kwargs)
 
-LANGUAGES = dict(ja="Japanese", en="English", es="Spanish")
+def translate_chunk(chunk:str, prompt:PromptTemplate, **model_args):
+    """Translate a markdown chunk
+    chunk: markdown chunk
+    prompt: PromptTemplate object
+    return: translated chunk
+    """
+    res = completion_with_backoff(
+        messages=prompt.format(md_chunk=chunk), 
+        **model_args)
 
+    return res.choices[0].message.content
 
-def parse_model_name(model):
-    "Parse the model name and return the pricing"
-    if "4" in model:
-        return GPT4
-    elif "3.5" in model:
-        return GPT3
+@measure_execution_time
+def translate_splitted_md(
+        splitted_markdown:list[str], 
+        prompt:PromptTemplate, 
+        max_chunk_tokens:int=MAX_CHUNK_TOKENS, 
+        sep:str="\n\n",
+        **model_args,
+        )->str:
+    """Translate a list of markdown chunks
+    splitted_markdown: list of markdown chunks
+    prompt: PromptTemplate object
+    max_chunk_tokens: maximum number of tokens per chunk
+    sep: separator between chunks
+    model_args: arguments to pass to the completion_with_backoff function
+    return: translated markdown file
+    """
 
-class MarkdownTextSplitter(RecursiveCharacterTextSplitter):
-    """A super basic Splitter that splits on newlines and spaces."""
+    packed_chunks = ""
+    translated_file = ""
+    packed_chunks_len = 0
 
-    def __init__(self, **kwargs: Any):
-        """Initialize a MarkdownTextSplitter."""
-        separators = [
-            "\n\n",
-            "\n",
-            " ",
-        ]
-        super().__init__(separators=separators, **kwargs)
+    for i, chunk in enumerate(splitted_markdown):
+        
+        n_tokens = count_tokens(chunk)
 
+        if packed_chunks_len + n_tokens <= max_chunk_tokens:
+            print(f"Packing chunk {i} with {n_tokens} tokens")
+            packed_chunks += sep + chunk
+            packed_chunks_len += n_tokens
+        else:
+            print(f">> Translating {packed_chunks_len} tokens")
+            t_chunk = translate_chunk(packed_chunks, prompt, **model_args)
+            translated_file += sep + t_chunk
+            print(f"Packing chunk {i} with {n_tokens} tokens")
+            packed_chunks = chunk
+            packed_chunks_len = n_tokens
+    
+    print(f">> Translating {packed_chunks_len} tokens (last chunk)")
+    t_chunk = translate_chunk(packed_chunks, prompt, **model_args)
+    translated_file += sep + t_chunk
 
-def get_translate_chain(
-    model_name=GPT3, chat_prompt=CHAT_PROMPT, temperature=TEMPERATURE
-):
-    "Get a translation chain"
-    if not os.getenv("OPENAI_API_KEY"):
-        console.print("[bold red]Please set `OPENAI_API_KEY` environment variable[/]")
-        exit(1)
-    chat = ChatOpenAI(
-        model_name=model_name, temperature=temperature, request_timeout=TIMEOUT
-    )
-    chain = LLMChain(llm=chat, prompt=chat_prompt)
-    return chain
-
-
-class IdentityChain:
-    def __init__(self):
-        pass
-
-    def run(self, text=None, **kwargs):
-        return text
-
-
-def get_identity_chain():
-    return IdentityChain()
-
+    return translated_file
+class Translator:
+    "A class to translate markdown files"
+    def __init__(self, config_folder, language="ja", max_chunk_tokens:int=MAX_CHUNK_TOKENS):
+        self.config_folder = Path(config_folder)
+        self.language = language
+        self.prompt_template = PromptTemplate.from_files(
+            self.config_folder / "system_prompt.txt",
+            self.config_folder / "human_prompt.txt",
+            self.config_folder / f"language_dicts/{language}.yaml"
+        )
+        self.max_chunk_tokens = max_chunk_tokens
+        with open(self.config_folder / "model_config.yaml", 'r') as file:
+            self.model_args = yaml.safe_load(file)
+            print(f"Model args: {self.model_args}")
+    
+    def translate_file(self, md_file:str, remove_comments:bool=True):
+        """Translate a markdown file"""
+        with open(md_file, "r") as f:
+            md_content = f.read()
+        if remove_comments:
+            md_content = remove_markdown_comments(md_content)
+        chunks = split_markdown(md_content)
+        translated_file = translate_splitted_md(chunks,
+                                                self.prompt_template,
+                                                max_chunk_tokens=self.max_chunk_tokens,
+                                                **self.model_args)
+        return translated_file
 
 def _translate_file(
-    input_file,
-    out_file,
-    temperature=TEMPERATURE,
-    max_chunk_tokens=MAX_CHUNK_TOKENS,
-    replace=False,
-    language="ja",
-    model=GPT3,
-    verbose=False,
+    input_file: str, # File to translate
+    out_file: str, # File to save the translated file to
+    max_chunk_tokens: int = MAX_CHUNK_TOKENS, # Max tokens per chunk
+    replace: bool = False, # Replace existing file
+    language: str = "es", # Language to translate to
+    config_folder: str = "./configs", # Config folder
+    remove_comments: bool = True, # Remove comments
 ):
-    "Translate a file to Japanese using GPT-3/4"
+    """Translate a markdown file"""
+    if file_is_empty(input_file):
+        raise ValueError(f"File {input_file} is empty")
 
-    if Path(out_file).exists() and not replace:
-        console.print(f"Skipping {input_file} as {out_file} already exists")
-        return
-
-    # create the output file
-    out_file.parent.mkdir(exist_ok=True, parents=True)
-    out_file.touch()
-
-    console.print(f"Translating {input_file} to {out_file}")
-
-    docs = TextLoader(input_file).load()
-
-    markdown_splitter = MarkdownTextSplitter(
-        chunk_size=max_chunk_tokens, chunk_overlap=0
-    )
-    chunks = markdown_splitter.split_documents(docs)
-
-    chain = get_translate_chain(model_name=model, temperature=temperature)
-    # chain = get_identity_chain()
-
-    out = []
-
-    for i, chunk in enumerate(chunks):
-        console.print(f"Translating chunk {i+1}/{len(chunks)}")
-
-        # text to translate
-        query = chunk.page_content
-
-        # filter dictionary with words from the text
-        translation_dict = filter_dictionary(query, DICTIONARIES[language])
-        try:
-            if verbose:
-                console.print(Markdown(f"Input Text:\n==============\n{chunk}"))
-            out.append(
-                chain.run(
-                    input_language="English",
-                    output_language=LANGUAGES[language],
-                    dictionary=translation_dict,
-                    text=query,
-                )
-            )
-            if verbose:
-                console.print(Markdown(f"Translation:\n==============\n{out[-1]}"))
-        except Exception as e:
-            if "currently overloaded" in str(e):
-                console.print("Server overloaded, waiting for 30 seconds")
-                time.sleep(30)
-                out.append(
-                    chain.run(
-                        input_language="English",
-                        output_language=LANGUAGES[language],
-                        dictionary=translation_dict,
-                        text=query,
-                    )
-                )
-            raise e
-
-    # merge the chunks
-    out = "\n\n".join(out)
-
-    with open(out_file, "w") as out_f:
-        console.print(f"Saving output to {out_file}")
-        out_f.writelines(out)
+    if Path(out_file).exists() and not replace and not file_is_empty(out_file):
+        raise FileExistsError(f"File {out_file} already exists. Use --replace to overwrite.")
+    else:
+        translator = Translator(config_folder, language, max_chunk_tokens)
+        translated_file = translator.translate_file(input_file, remove_comments)
+        with open(out_file, "w") as f:
+            f.write(translated_file)
+        print(f"Translated file saved to {out_file}")
 
 
 @call_parse
 def translate_file(
     input_file: Param("File to translate", str),
     out_file: Param("File to save the translated file to", str),
-    temperature: Param("Temperature of the model", float) = TEMPERATURE,
     max_chunk_tokens: Param("Max tokens per chunk", int) = MAX_CHUNK_TOKENS,
     replace: Param("Replace existing file", store_true) = False,
-    language: Param("Language to translate to", str) = "ja",
-    model: Param("Model to use", str) = GPT3,
-    verbose: Param("Print the output", store_true) = False,
+    language: Param("Language to translate to", str) = "es",
+    config_folder: Param("Config folder", str) = "./configs",
+    remove_comments: Param("Remove comments", store_true) = True,
 ):
-    try:
-        WandbTracer.init({"project": "docs_translate", "group": language})
-        _translate_file(
-            Path(input_file),
-            Path(out_file),
-            temperature=temperature,
-            max_chunk_tokens=max_chunk_tokens,
-            replace=replace,
-            language=language,
-            model=model,
-            verbose=verbose,
-        )
-        WandbTracer.finish()
-    except Exception as e:
-        console.print(f"[bold red]Error while translating {input_file}[/]")
-        console.print(e)
-        raise e
-
+    _translate_file(input_file, out_file, max_chunk_tokens, replace, language, config_folder, remove_comments)
 
 @call_parse
 def translate_folder(
-    docs_folder: Param("Folder containing markdown files to translate", str) = DOCS_DIR,
-    out_folder: Param("Folder to save the translated files to", str) = OUTDOCS_DIR,
-    temperature: Param("Temperature of the model", float) = TEMPERATURE,
+    input_folder: Param("Folder to translate", str),
+    out_folder: Param("Folder to save the translated files to", str),
     max_chunk_tokens: Param("Max tokens per chunk", int) = MAX_CHUNK_TOKENS,
     replace: Param("Replace existing files", store_true) = False,
-    language: Param("Language to translate to", str) = "jn",
-    model: Param("Model to use", str) = GPT4,
-    verbose: Param("Print the output", store_true) = False,
-    file_ext: Param("File extension to filter files", str) = "*.md",
-    file_re: Param("Regex to filter files", str) = None,
+    language: Param("Language to translate to", str) = "es",
+    config_folder: Param("Config folder", str) = "./configs",
+    remove_comments: Param("Remove comments", store_true) = True,
 ):
-    "Translate a folder to Japanese using GPT-3/4"
-    docs_folder = Path(docs_folder)
+    """Translate all markdown files in a folder respecting the folder hierarchy"""
+    input_folder = Path(input_folder)
     out_folder = Path(out_folder)
-    console.print(
-        dedent(
-            f"""
-        ======================================
-        Using {docs_folder}/ as input folder
-        Using {out_folder}/ as output folder
-        model = {model}
-        language = {language}
-        ======================================"""
-        )
-    )
+    if not input_folder.is_dir():
+        raise ValueError(f"{input_folder} is not a folder")
 
-    out_folder.mkdir(exist_ok=True)
-
-    files = get_md_files(docs_folder, files_glob=file_ext, file_re=file_re)
-
-    console.print(f"found {len(files)} files to translate")
-
-    for input_file in track(files, description="Translating files"):
-        # let's make sure to keep the same folder structure
-        out_file = out_folder / input_file.relative_to(docs_folder)
+    translated_files = {}
+    
+    for md_file in get_md_files(input_folder):
+        out_file = out_folder / md_file.relative_to(input_folder)
+        out_file.parent.mkdir(parents=True, exist_ok=True)
         try:
-            _translate_file(
-                input_file,
-                out_file,
-                temperature=temperature,
-                max_chunk_tokens=max_chunk_tokens,
-                replace=replace,
-                language=language,
-                model=model,
-                verbose=verbose,
-            )
+            _translate_file(str(md_file), str(out_file), max_chunk_tokens, replace, language, config_folder, remove_comments)
+            translated_files[str(md_file)] = str(out_file)
         except Exception as e:
-            out_file.unlink()
-            console.print(f"[bold red]Error while translating {input_file}[/]")
-            console.print(e)
+            print(f"Error translating {md_file}: {e}")
+
+    print(f"Total Translated: {len(translated_files)}\nSkipped: {len(get_md_files(input_folder)) - len(translated_files)}")
+
+

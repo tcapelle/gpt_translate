@@ -1,5 +1,5 @@
 rich
 openai
 fastcore
-langchain
+tiktoken
 wandb
