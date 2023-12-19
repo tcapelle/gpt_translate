@@ -1,10 +1,10 @@
-from gpt_translate.utils import check_file_non_empty, get_md_files
+from gpt_translate.utils import file_is_empty, get_md_files
 
 
 def test_empty_file():
     "Check that the files are non empty"
-    assert not check_file_non_empty("tests/data/empty.md")
-    assert check_file_non_empty("tests/data/intro.md")
+    assert  file_is_empty("tests/data/empty.md")
+    assert not file_is_empty("tests/data/intro.md")
 
 
 def test_get_md_files():
