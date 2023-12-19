@@ -8,9 +8,11 @@ from tenacity import (
 
 from gpt_translate.prompts import PromptTemplate
 from gpt_translate.loader import remove_markdown_comments, split_markdown
-from gpt_translate.utils import count_tokens
+from gpt_translate.utils import count_tokens, measure_execution_time
 
 client = OpenAI()
+
+MAX_CHUNK_TOKENS = 1000
 
 @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
 def completion_with_backoff(**kwargs):
@@ -28,10 +30,11 @@ def translate_chunk(chunk:str, prompt:PromptTemplate):
 
     return res.choices[0].message.content
 
+@measure_execution_time
 def translate_splitted_md(
         splitted_markdown:list[str], 
         prompt:PromptTemplate, 
-        max_chunk_tokens:int=400, 
+        max_chunk_tokens:int=MAX_CHUNK_TOKENS, 
         sep:str="\n\n")->str:
     """Translate a list of markdown chunks
     splitted_markdown: list of markdown chunks
@@ -64,7 +67,7 @@ def translate_splitted_md(
     return translated_file
 class Translator:
     "A class to translate markdown files"
-    def __init__(self, config_folder, language="ja", max_chunk_tokens:int=400):
+    def __init__(self, config_folder, language="ja", max_chunk_tokens:int=MAX_CHUNK_TOKENS):
         self.config_folder = Path(config_folder)
         self.language = language
         self.prompt_template = PromptTemplate.from_files(
