@@ -1,4 +1,6 @@
 import re
+import tiktoken
+
 from fastcore.script import call_parse, Param, store_true
 from fastcore.xtras import globtastic
 
@@ -51,3 +53,11 @@ def _maybe_remove_odd_lines(path, verbose=False, pct=0.5):
     else:
         if verbose:
             print(f"Skipping: {path}")
+
+def count_tokens(chunk, model="gpt-4"):
+    "Count the number of tokens in a chunk"
+    enc = tiktoken.encoding_for_model(model)
+    return len(enc.encode(chunk))
+
+def concat_md_chunks(chunks, sep="\n\n"):
+    return sep.join(chunks)
