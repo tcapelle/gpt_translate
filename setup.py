@@ -18,7 +18,7 @@ setup(
         "natural language processing",
         "openai",
     ],
-    install_requires=["rich", "openai", "fastcore", "langchain", "wandb"],
+    install_requires=["rich", "openai", "tiktoken", "tenacity", "fastcore"],
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
