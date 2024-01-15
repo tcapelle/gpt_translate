@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+include-package-data = true
+
+[project]
+name = "gpt_translate"
+dynamic = ["version"]
+description = "A tool to translate markdown files using GPT-4"
+readme = "README.md" # Assuming you have a README.md file
+requires-python = ">=3.9"
+authors = [{name = "Thomas Capelle", email = "tcapelle@pm.me"}]
+license = {file = "LICENSE"} # Assuming you have a LICENSE file
+keywords = ["artificial intelligence", "generative models", "natural language processing", "openai"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+]
+dependencies = [
+    "rich>=13.0",
+    "openai>=1.0",
+    "tiktoken>=0.5",
+    "tenacity>=8.2.3",
+    "fastcore>=1.5.29",
+]
+
+[project.urls]
+homepage = "https://github.com/tcapelle/gpt_translate"
+
+[project.scripts]
+"gpt_translate.file" = "gpt_translate.translate:translate_file"
+"gpt_translate.folder" = "gpt_translate.translate:translate_folder"
