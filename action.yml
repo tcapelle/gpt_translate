@@ -34,7 +34,7 @@ runs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        python -m pip -e .
+        python -m pip install .
       shell: bash
     - name: translating files
       run: |
