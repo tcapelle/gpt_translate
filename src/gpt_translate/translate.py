@@ -115,6 +115,10 @@ def _translate_file(
     if file_is_empty(input_file):
         raise ValueError(f"File {input_file} is empty")
 
+    # check it is a md file
+    if Path(input_file).suffix != ".md":
+        raise ValueError(f"File {input_file} is not a markdown file")
+
     if Path(out_file).exists() and not replace and not file_is_empty(out_file):
         raise FileExistsError(f"File {out_file} already exists. Use --replace to overwrite.")
     else:
@@ -134,7 +138,7 @@ def _translate_files(
     config_folder: str = "./configs", # Config folder
     remove_comments: bool = True, # Remove comments
 ):
-    input_files = [Path(f) for f in input_files]
+    input_files = [Path(f) for f in input_files if Path(f).suffix == ".md"]
     input_folder = Path(input_folder)
     out_folder = Path(out_folder)
     if not input_folder.is_dir():
