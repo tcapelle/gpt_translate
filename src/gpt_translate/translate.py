@@ -124,6 +124,31 @@ def _translate_file(
             f.write(translated_file)
         print(f"Translated file saved to {out_file}")
 
+def _translate_files(
+    input_files: list[str], # Files to translate
+    input_folder: str, # folder where the file lives
+    out_folder: str, # Folder to save the translated files to
+    max_chunk_tokens: int = MAX_CHUNK_TOKENS, # Max tokens per chunk
+    replace: bool = False, # Replace existing file
+    language: str = "es", # Language to translate to
+    config_folder: str = "./configs", # Config folder
+    remove_comments: bool = True, # Remove comments
+):
+    input_files = [Path(f) for f in input_files]
+    input_folder = Path(input_folder)
+    out_folder = Path(out_folder)
+    if not input_folder.is_dir():
+        raise ValueError(f"{input_folder} is not a folder")
+    
+    translated_files = {}
+    for md_file in input_files:
+        out_file = out_folder / md_file.relative_to(input_folder)
+        out_file.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            _translate_file(str(md_file), str(out_file), max_chunk_tokens, replace, language, config_folder, remove_comments)
+            translated_files[str(md_file)] = str(out_file)
+        except Exception as e:
+            print(f"Error translating {md_file}: {e}")
 
 @call_parse
 def translate_file(
@@ -135,7 +160,23 @@ def translate_file(
     config_folder: Param("Config folder", str) = "./configs",
     remove_comments: Param("Remove comments", store_true) = True,
 ):
-    _translate_file(input_file, out_file, max_chunk_tokens, replace, language, config_folder, remove_comments)
+    _translate_file(input_file, out_file, max_chunk_tokens, replace, 
+                    language, config_folder, remove_comments)
+
+@call_parse
+def translate_files(
+    input_files: Param("Files to translate", nargs="+"),
+    input_folder: Param("Folder to translate", str) = "docs/",
+    out_folder: Param("Folder to save the translated files to", str) = "translated/",
+    max_chunk_tokens: Param("Max tokens per chunk", int) = MAX_CHUNK_TOKENS,
+    replace: Param("Replace existing file", store_true) = False,
+    language: Param("Language to translate to", str) = "es",
+    config_folder: Param("Config folder", str) = "./configs",
+    remove_comments: Param("Remove comments", store_true) = True,
+):
+    _translate_files(input_files, input_folder, out_folder, max_chunk_tokens, 
+                     replace, language, config_folder, remove_comments)
+
 
 @call_parse
 def translate_folder(
@@ -148,22 +189,8 @@ def translate_folder(
     remove_comments: Param("Remove comments", store_true) = True,
 ):
     """Translate all markdown files in a folder respecting the folder hierarchy"""
-    input_folder = Path(input_folder)
-    out_folder = Path(out_folder)
-    if not input_folder.is_dir():
-        raise ValueError(f"{input_folder} is not a folder")
 
-    translated_files = {}
-    
-    for md_file in get_md_files(input_folder):
-        out_file = out_folder / md_file.relative_to(input_folder)
-        out_file.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            _translate_file(str(md_file), str(out_file), max_chunk_tokens, replace, language, config_folder, remove_comments)
-            translated_files[str(md_file)] = str(out_file)
-        except Exception as e:
-            print(f"Error translating {md_file}: {e}")
-
-    print(f"Total Translated: {len(translated_files)}\nSkipped: {len(get_md_files(input_folder)) - len(translated_files)}")
-
+    input_files = get_md_files(input_folder)
+    _translate_files(input_files, input_folder, out_folder, max_chunk_tokens, 
+                     replace, language, config_folder, remove_comments)
 

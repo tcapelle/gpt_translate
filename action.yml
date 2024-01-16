@@ -12,15 +12,35 @@ inputs:
   output-folder:
     description: "Output Folder"
     default: 'docs_translated/'
+  pr-file-only:
+    description: "Only translate files changed in PR"
+    default: true 
 
 runs:
   using: "composite"
   steps:
-    - run: echo Folder to translate ${{ inputs.folder-to-translate }}.
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: ${{ github.event_name == 'pull_request' && 2 || 0 }}
+    - name: Get changed files
+      id: changed-files
+      run: |
+          if ${{ github.event_name == 'pull_request' }}; then
+             echo "changed_files=$(git diff --name-only -r HEAD^1 HEAD | xargs)" >> $GITHUB_OUTPUT
+          else
+              echo "changed_files=$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }} | xargs)" >> $GITHUB_OUTPUT
+          fi
       shell: bash
-    - run: |
+    - name: Install dependencies
+      run: |
         python -m pip install --upgrade pip
         python -m pip install gpt-translate
       shell: bash
-    - run: gpt_translate.folder ${{ inputs.folder-to-translate }} ${{ inputs.output-folder }} --language ${{ inputs.language }}
+    - name: translating files
+      run: |
+        if ${{inputs.pr-file-only}}; then
+            gpt_translate.files ${{ steps.changed-files.outputs.changed_files }} --input_folder ${{ inputs.folder-to-translate }}  --out_folder ${{ inputs.output-folder }} --language ${{ inputs.language }}
+        else
+            gpt_translate.folder ${{ inputs.folder-to-translate }} ${{ inputs.output-folder }} --language ${{ inputs.language }}
+        fi
       shell: bash
