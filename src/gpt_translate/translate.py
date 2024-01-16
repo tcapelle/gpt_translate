@@ -15,6 +15,7 @@ from gpt_translate.utils import count_tokens, measure_execution_time, get_md_fil
 client = OpenAI()
 
 MAX_CHUNK_TOKENS = 1000
+REPLACE = True
 
 @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
 def completion_with_backoff(**kwargs):
@@ -106,7 +107,7 @@ def _translate_file(
     input_file: str, # File to translate
     out_file: str, # File to save the translated file to
     max_chunk_tokens: int = MAX_CHUNK_TOKENS, # Max tokens per chunk
-    replace: bool = False, # Replace existing file
+    replace: bool = REPLACE, # Replace existing file
     language: str = "es", # Language to translate to
     config_folder: str = "./configs", # Config folder
     remove_comments: bool = True, # Remove comments
@@ -133,7 +134,7 @@ def _translate_files(
     input_folder: str, # folder where the file lives
     out_folder: str, # Folder to save the translated files to
     max_chunk_tokens: int = MAX_CHUNK_TOKENS, # Max tokens per chunk
-    replace: bool = False, # Replace existing file
+    replace: bool = REPLACE, # Replace existing file
     language: str = "es", # Language to translate to
     config_folder: str = "./configs", # Config folder
     remove_comments: bool = True, # Remove comments
@@ -159,7 +160,7 @@ def translate_file(
     input_file: Param("File to translate", str),
     out_file: Param("File to save the translated file to", str),
     max_chunk_tokens: Param("Max tokens per chunk", int) = MAX_CHUNK_TOKENS,
-    replace: Param("Replace existing file", store_true) = False,
+    replace: Param("Replace existing file", store_true) = REPLACE,
     language: Param("Language to translate to", str) = "es",
     config_folder: Param("Config folder", str) = "./configs",
     remove_comments: Param("Remove comments", store_true) = True,
@@ -173,7 +174,7 @@ def translate_files(
     input_folder: Param("Folder to translate", str) = "docs/",
     out_folder: Param("Folder to save the translated files to", str) = "translated/",
     max_chunk_tokens: Param("Max tokens per chunk", int) = MAX_CHUNK_TOKENS,
-    replace: Param("Replace existing file", store_true) = False,
+    replace: Param("Replace existing file", store_true) = REPLACE,
     language: Param("Language to translate to", str) = "es",
     config_folder: Param("Config folder", str) = "./configs",
     remove_comments: Param("Remove comments", store_true) = True,
@@ -185,9 +186,9 @@ def translate_files(
 @call_parse
 def translate_folder(
     input_folder: Param("Folder to translate", str),
-    out_folder: Param("Folder to save the translated files to", str),
+    out_folder: Param("Folder to save the translated files to", str) = "translated/",
     max_chunk_tokens: Param("Max tokens per chunk", int) = MAX_CHUNK_TOKENS,
-    replace: Param("Replace existing files", store_true) = False,
+    replace: Param("Replace existing files", store_true) = REPLACE,
     language: Param("Language to translate to", str) = "es",
     config_folder: Param("Config folder", str) = "./configs",
     remove_comments: Param("Remove comments", store_true) = True,
