@@ -55,13 +55,13 @@ runs:
               --language ${{ inputs.language }} \
               --max_chunk_tokens ${{ inputs.max-chunk-tokens }} \
               --config_folder ${{ inputs.config-folder }} \
-              --replace ${{ inputs.replace }}
+              --replace
         else
             gpt_translate.folder ${{ inputs.folder-to-translate }} \
               --out_folder ${{ inputs.output-folder }} \ 
               --language ${{ inputs.language }} \
               --max_chunk_tokens ${{ inputs.max-chunk-tokens }} \
               --config_folder ${{ inputs.config-folder }} \
-              --replace ${{ inputs.replace }}
+              --replace
         fi
       shell: bash
