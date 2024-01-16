@@ -12,9 +12,9 @@ inputs:
   output-folder:
     description: "Output Folder"
     default: 'docs_translated/'
-  pr-file-only:
-    description: "Only translate files changed in PR"
-    default: true 
+  filter-files:
+    description: "What files to consider"
+    default: "pr" 
 
 runs:
   using: "composite"
@@ -38,7 +38,7 @@ runs:
       shell: bash
     - name: translating files
       run: |
-        if ${{inputs.pr-file-only}}; then
+        if ${{ inputs.filter-files == 'pr' }}; then
             gpt_translate.files ${{ steps.changed-files.outputs.changed_files }} --input_folder ${{ inputs.folder-to-translate }}  --out_folder ${{ inputs.output-folder }} --language ${{ inputs.language }}
         else
             gpt_translate.folder ${{ inputs.folder-to-translate }} ${{ inputs.output-folder }} --language ${{ inputs.language }}
