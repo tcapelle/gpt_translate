@@ -18,9 +18,6 @@ inputs:
   config-folder:
     description: "Config Folder"
     default: './configs'
-  filter-files:
-    description: "What files to consider"
-    default: "pr" 
 outputs:
   translated-files:
     description: 'Translated files'
@@ -32,11 +29,7 @@ runs:
     - name: Get changed files
       id: changed-files
       run: |
-          if ${{ github.event_name == 'pull_request' }}; then
-            echo "changed_files=$(git diff --name-only -r HEAD^1 HEAD | grep '\.md$' | xargs)" >> $GITHUB_OUTPUT
-          else
-            echo "changed_files=$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }} | grep '\.md$' | xargs)" >> $GITHUB_OUTPUT
-          fi
+          echo "changed_files=$(git diff --name-only -r HEAD^1 HEAD | grep '\.md$' | xargs)" >> $GITHUB_OUTPUT
       shell: bash
     - name: Install dependencies
       run: |
@@ -45,20 +38,11 @@ runs:
       shell: bash
     - name: translating files
       run: |
-        if ${{ inputs.filter-files == 'pr' }}; then
-            gpt_translate.files ${{ steps.changed-files.outputs.changed_files }} \
-              --input_folder ${{ inputs.folder-to-translate }} \
-              --out_folder ${{ inputs.output-folder }} \
-              --language ${{ inputs.language }} \
-              --max_chunk_tokens ${{ inputs.max-chunk-tokens }} \
-              --config_folder ${{ inputs.config-folder }} \
-              --replace
-        else
-            gpt_translate.folder ${{ inputs.folder-to-translate }} \
-              --out_folder ${{ inputs.output-folder }} \ 
-              --language ${{ inputs.language }} \
-              --max_chunk_tokens ${{ inputs.max-chunk-tokens }} \
-              --config_folder ${{ inputs.config-folder }} \
-              --replace
-        fi
+        gpt_translate.files ${{ steps.changed-files.outputs.changed_files }} \
+          --input_folder ${{ inputs.folder-to-translate }} \
+          --out_folder ${{ inputs.output-folder }} \
+          --language ${{ inputs.language }} \
+          --max_chunk_tokens ${{ inputs.max-chunk-tokens }} \
+          --config_folder ${{ inputs.config-folder }} \
+          --replace
       shell: bash
