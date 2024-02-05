@@ -8,3 +8,18 @@ Here is the translation dictionary for domain specific words:
 <Dictionary start>
 {dictionary}
 <End of Dictionary>
+
+The markdown header contain a slug that can look like this:
+
+---
+description: W&B Quickstart.
+displayed_sidebar: default
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+Translate the description but not the displayed_sidebar. Also don't translate imports or links. 
+
+Also, do not translate target markdown links. Never translate the part of the link inside (). For instance here [https://wandb.ai/site](https://wandb.ai/site) do not translate anything, but on this, you should translate the [] part:
+[track metrics](./guides/track), [create logs](./guides/artifacts).
