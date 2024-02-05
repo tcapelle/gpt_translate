@@ -1,4 +1,5 @@
 import yaml
+import logging
 from pathlib import Path
 from openai import OpenAI
 from tenacity import (
@@ -11,6 +12,9 @@ from fastcore.script import call_parse, Param, store_true
 from gpt_translate.prompts import PromptTemplate
 from gpt_translate.loader import remove_markdown_comments, split_markdown
 from gpt_translate.utils import count_tokens, measure_execution_time, get_md_files, file_is_empty
+
+
+logging.basicConfig(level=logging.INFO)
 
 client = OpenAI()
 
@@ -27,11 +31,13 @@ def translate_chunk(chunk:str, prompt:PromptTemplate, **model_args):
     prompt: PromptTemplate object
     return: translated chunk
     """
+    logging.info(f"Calling OpenAI with {model_args}\nTranslating chunk: {chunk[:100]}...")
     res = completion_with_backoff(
         messages=prompt.format(md_chunk=chunk), 
         **model_args)
-
-    return res.choices[0].message.content
+    output = res.choices[0].message.content
+    logging.info(f"OpenAI response: {output[:100]}...")
+    return output
 
 @measure_execution_time
 def translate_splitted_md(
@@ -97,10 +103,11 @@ class Translator:
         if remove_comments:
             md_content = remove_markdown_comments(md_content)
         chunks = split_markdown(md_content)
-        translated_file = translate_splitted_md(chunks,
-                                                self.prompt_template,
-                                                max_chunk_tokens=self.max_chunk_tokens,
-                                                **self.model_args)
+        translated_file = translate_splitted_md(
+            chunks,
+            self.prompt_template,
+            max_chunk_tokens=self.max_chunk_tokens,
+            **self.model_args)
         return translated_file
 
 def _translate_file(
