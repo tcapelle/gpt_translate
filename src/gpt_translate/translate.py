@@ -10,7 +10,7 @@ from tenacity import (
 from fastcore.script import call_parse, Param, store_true
 
 from gpt_translate.prompts import PromptTemplate
-from gpt_translate.loader import remove_markdown_comments, split_markdown
+from gpt_translate.loader import remove_markdown_comments, split_markdown, MDPage
 from gpt_translate.utils import count_tokens, measure_execution_time, get_md_files, file_is_empty
 
 
@@ -37,6 +37,7 @@ def translate_chunk(chunk:str, prompt:PromptTemplate, **model_args):
         **model_args)
     output = res.choices[0].message.content
     logging.info(f"OpenAI response: {output[:100]}...")
+    logging.debug(res.usage)
     return output
 
 @measure_execution_time
@@ -65,18 +66,18 @@ def translate_splitted_md(
         n_tokens = count_tokens(chunk)
 
         if packed_chunks_len + n_tokens <= max_chunk_tokens:
-            print(f"Packing chunk {i} with {n_tokens} tokens")
+            logging.debug(f"Packing chunk {i} with {n_tokens} tokens")
             packed_chunks += sep + chunk
             packed_chunks_len += n_tokens
         else:
-            print(f">> Translating {packed_chunks_len} tokens")
+            logging.debug(f">> Translating {packed_chunks_len} tokens")
             t_chunk = translate_chunk(packed_chunks, prompt, **model_args)
             translated_file += sep + t_chunk
-            print(f"Packing chunk {i} with {n_tokens} tokens")
+            logging.debug(f"Packing chunk {i} with {n_tokens} tokens")
             packed_chunks = chunk
             packed_chunks_len = n_tokens
     
-    print(f">> Translating {packed_chunks_len} tokens (last chunk)")
+    logging.debug(f">> Translating {packed_chunks_len} tokens (last chunk)")
     t_chunk = translate_chunk(packed_chunks, prompt, **model_args)
     translated_file += sep + t_chunk
 
@@ -94,7 +95,7 @@ class Translator:
         self.max_chunk_tokens = max_chunk_tokens
         with open(self.config_folder / "model_config.yaml", 'r') as file:
             self.model_args = yaml.safe_load(file)
-            print(f"Model args: {self.model_args}")
+            logging.info(f"Model args: {self.model_args}")
     
     def translate_file(self, md_file:str, remove_comments:bool=True):
         """Translate a markdown file"""
@@ -102,13 +103,15 @@ class Translator:
             md_content = f.read()
         if remove_comments:
             md_content = remove_markdown_comments(md_content)
-        chunks = split_markdown(md_content)
-        translated_file = translate_splitted_md(
+        md_page = MDPage.create(md_file, md_content)
+        chunks = split_markdown(md_page.content)
+        translated_content = translate_splitted_md(
             chunks,
             self.prompt_template,
             max_chunk_tokens=self.max_chunk_tokens,
             **self.model_args)
-        return translated_file
+        translated_page = md_page.from_translated(translated_content, fix_links=True)
+        return str(translated_page)
 
 def _translate_file(
     input_file: str, # File to translate
@@ -134,7 +137,7 @@ def _translate_file(
         translated_file = translator.translate_file(input_file, remove_comments)
         with open(out_file, "w") as f:
             f.write(translated_file)
-        print(f"Translated file saved to {out_file}")
+        logging.info(f"Translated file saved to {out_file}")
 
 def _translate_files(
     input_files: list[str], # Files to translate
