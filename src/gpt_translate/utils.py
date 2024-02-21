@@ -1,10 +1,12 @@
 import time
+import logging
 from pathlib import Path
 
 from fastcore.xtras import globtastic
 import tiktoken
 
 MODEL = "gpt-4"
+logging.basicConfig(level=logging.INFO)
 
 def measure_execution_time(func):
     def wrapper(*args, **kwargs):
@@ -12,7 +14,7 @@ def measure_execution_time(func):
         result = func(*args, **kwargs)
         end_time = time.perf_counter()
         elapsed_time = end_time - start_time
-        print(f"Function {func.__name__} took {elapsed_time:.4f} seconds to execute.")
+        logging.info(f"Function {func.__name__} took {elapsed_time:.4f} seconds to execute.")
         return result
     return wrapper
 
