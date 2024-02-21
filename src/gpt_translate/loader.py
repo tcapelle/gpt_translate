@@ -126,16 +126,22 @@ class MDPage:
     header: str = "Header"
     links: list[MDLlink] = None
     content: str = field(init=False)
-
-    @classmethod
-    def create(cls, title, md_content):
-        return cls(title=title, raw_content=md_content)
-
+    
     def __post_init__(self):
         header, self.content = extract_header(self.raw_content)
         self.header = Header.from_string(header)
         self.links = self.find_links()
-        
+    
+    @classmethod
+    def create(cls, title, md_content):
+        return cls(title=title, raw_content=md_content)
+
+    def from_translated(self, translated_content, fix_links=True):
+        translated_page = MDPage.create(self.title, f"{self.header}\n{translated_content}")
+        if fix_links:
+            translated_page.update_links(self.links)
+        return translated_page
+
     def find_links(self):
         """
         Finds all Markdown links in the content.
@@ -149,13 +155,18 @@ class MDPage:
                 links.append(MDLlink(title, target, i+1))
         return links
     
-    def update_links(self, new_links):
+    def update_links(self, new_links, targets_only=True):
         "Update the links in the content"
         assert len(new_links) == len(self.links), f"Number of links don't match: {len(new_links)} vs {len(self.links)}"
+        logging.info(f"Maybe updating links in {self.title}")
         for old_link, new_link in zip(self.links, new_links):
-            logging.info(f"Replacing {old_link} with {new_link}")
-            self.content = self.content.replace(old_link.target, new_link.target)
-        self.links = new_links
+            if old_link.target != new_link.target:
+                logging.info(f"Replacing {old_link} with {new_link}")
+                self.content = self.content.replace(old_link.target, new_link.target)
+        if targets_only:
+            self.links = self.find_links()
+        else:
+            self.links = new_links
     
     def __str__(self):
         "Concatenate header and content"
