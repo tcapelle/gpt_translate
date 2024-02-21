@@ -18,8 +18,8 @@ logging.basicConfig(level=logging.INFO)
 
 client = OpenAI()
 
-MAX_CHUNK_TOKENS = 1000
-REPLACE = True
+MAX_CHUNK_TOKENS = 2000
+REPLACE = False
 
 @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
 def completion_with_backoff(**kwargs):
@@ -202,10 +202,11 @@ def translate_folder(
     language: Param("Language to translate to", str) = "es",
     config_folder: Param("Config folder", str) = "./configs",
     remove_comments: Param("Remove comments", store_true) = True,
+    limit: Param("Limit number of files to translate", int) = None,
 ):
     """Translate all markdown files in a folder respecting the folder hierarchy"""
 
-    input_files = get_md_files(input_folder)
+    input_files = get_md_files(input_folder)[:limit]
     _translate_files(input_files, input_folder, out_folder, max_chunk_tokens, 
                      replace, language, config_folder, remove_comments)
 
