@@ -20,6 +20,9 @@ if __name__ == "__main__":
     columns = df.columns
 
     df = df.iloc[:,[args.en_columns, args.language_column]]
+    
+    #sort by column
+    df = df.sort_values(by=columns[args.en_columns])
 
     data_dict = {row[columns[args.en_columns]]: row[columns[args.language_column]] for i, row in df.iterrows()}
 
