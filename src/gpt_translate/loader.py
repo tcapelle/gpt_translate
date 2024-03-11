@@ -96,6 +96,8 @@ class Header:
         attributes = yaml.safe_load("\n".join(yaml_lines))
         # Rejoin the import lines into a single string
         imports = "\n".join(import_lines).strip()
+        if not attributes and not imports:
+            return ""
         return cls(**attributes, imports=imports)
     
     def __repr__(self) -> str:
@@ -157,7 +159,9 @@ class MDPage:
     
     def update_links(self, new_links, targets_only=True):
         "Update the links in the content"
-        assert len(new_links) == len(self.links), f"Number of links don't match: {len(new_links)} vs {len(self.links)}"
+        if len(new_links) == len(self.links):
+            logging.info(f"The following links don't match: {new_links} vs {self.links}")
+            raise ValueError(f"Number of links don't match: {len(new_links)} vs {len(self.links)}")
         logging.info(f"Maybe updating links in {self.title}")
         for old_link, new_link in zip(self.links, new_links):
             if old_link.target != new_link.target:
