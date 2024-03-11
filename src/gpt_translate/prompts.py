@@ -1,6 +1,6 @@
 from pathlib import Path
 
-LANGUAGES_DICT = {"es": "Spanish", "ja": "Japanese", "fr": "French", "de": "German"}
+LANGUAGES_DICT = {"es": "Spanish", "ja": "Japanese", "fr": "French", "de": "German", "ko": "Korean", "zh": "Chinese"}
 
 def filter_dictionary(query, dictionary):
     "Filter out words from the query that are not in the dictionary"
