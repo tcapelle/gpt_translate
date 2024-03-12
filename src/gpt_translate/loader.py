@@ -71,7 +71,7 @@ class Header:
     title: str = ""
     description: str = ""
     slug: str = ""
-    displayed_sidebar: str = "default"
+    displayed_sidebar: str = ""
     imports: str = ""
 
     @classmethod
