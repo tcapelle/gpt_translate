@@ -18,13 +18,12 @@ from gpt_translate.utils import count_tokens, measure_execution_time, get_md_fil
 
 
 logging.basicConfig(
-    level="NOTSET", format="%(message)s", datefmt="[%X]", handlers=[RichHandler()]
+    level="INFO", format="%(message)s", datefmt="[%X]", handlers=[RichHandler()]
 )
-log = logging.getLogger("rich")
-log.info("Hello, World!")
+log = logging.getLogger("main")
 client = AsyncOpenAI()
 
-## Global variables
+## Global
 MAX_CHUNK_TOKENS = 4000
 REPLACE = False
 REMOVE_COMMENTS = True
@@ -43,12 +42,12 @@ async def translate_chunk(chunk:str, prompt:PromptTemplate, **model_args):
     return: translated chunk
     """
     async with semaphore:
-        log.info(f"[bold red blink]Calling OpenAI [/bold red blink]with {model_args}\nTranslating chunk: {chunk[:100]}...", extra={"markup": True})
+        log.debug(f"[bold red blink]Calling OpenAI [/bold red blink]with {model_args}\nTranslating chunk: {chunk[:100]}...", extra={"markup": True})
         res = await completion_with_backoff(
             messages=prompt.format(md_chunk=chunk), 
             **model_args)
         output = res.choices[0].message.content
-        log.info(f"OpenAI response: {output[:100]}...")
+        log.debug(f"OpenAI response: {output[:100]}...")
         log.debug(res.usage)
         return output
 
@@ -107,14 +106,14 @@ class Translator:
         self.max_chunk_tokens = max_chunk_tokens
         with open(self.config_folder / "model_config.yaml", 'r') as file:
             self.model_args = yaml.safe_load(file)
-            log.info(f"Model args: {self.model_args}")
+            log.debug(f"Model args: {self.model_args}")
     
     async def translate_file(self, md_file:str, remove_comments:bool=True):
         """Translate a markdown file asynchronously"""
         with open(md_file, "r") as f:
             md_content = f.read()
         if remove_comments:
-            log.info("Removing comments")
+            log.debug("Removing comments")
             md_content = remove_markdown_comments(md_content)
         md_page = MDPage.create(md_file, md_content)
         chunks = split_markdown(md_page.content)
@@ -152,7 +151,7 @@ async def _translate_file(
             translated_file = await translator.translate_file(input_file, remove_comments)
             with open(out_file, "w") as f:
                 f.write(translated_file)
-            log.info(f"Translated file saved to {out_file}")
+            log.info(f"  ✅ Translated file saved to [green]{out_file}[/green]", extra={"markup": True})
         except Exception as e:
             log.error(f"Error translating {input_file}: {e}")
 
@@ -167,6 +166,14 @@ async def _translate_files(
     remove_comments: bool = REMOVE_COMMENTS, # Remove comments
 ):
     input_files = [Path(f) for f in input_files if Path(f).suffix == ".md"]
+    log.info(f"Translating {len(input_files)} files\n"
+             f"Max tokens per chunk: {max_chunk_tokens}\n"
+             f"Max concurrent calls to OpenAI: {MAX_OPENAI_CONCURRENT_CALLS}\n"
+             f"Removing comments: {remove_comments}\n"
+             f"Replace existing files: {replace}\n"
+             f"Language: {language}\n"
+             f"Config folder: {config_folder}\n"
+             f"Output folder: {out_folder}")
     input_folder = Path(input_folder)
     out_folder = Path(out_folder)
     if not input_folder.is_dir():
@@ -219,7 +226,6 @@ def translate_folder(
 ):
     """Translate all markdown files in a folder respecting the folder hierarchy"""
     input_files = get_md_files(input_folder)[:limit]
-    log.info(f"Translating {len(input_files)} files")
     asyncio.run(_translate_files(input_files, input_folder, out_folder, max_chunk_tokens, 
                                  replace, language, config_folder, remove_comments))
 
