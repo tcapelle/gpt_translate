@@ -59,18 +59,22 @@ displayed_sidebar: default
 ---
 """
 
-    header, content = extract_header(header_ref)
+    header, _ = extract_header("")
+    header = Header.from_string(header)
+    assert str(header) == ""
+
+    header, _ = extract_header(header_ref)
     header = Header.from_string(header)
     assert header.description == "Generated documentation for Weights & Biases APIs"
     assert header.displayed_sidebar == ""
     assert header.slug == ""
 
-    header, content = extract_header(header_guide)
+    header, _ = extract_header(header_guide)
     header = Header.from_string(header)
     assert header.slug == "/guides/app/features/custom-charts"
     assert header.displayed_sidebar == "default"
 
-    header, content = extract_header(header_multi)
+    header, _ = extract_header(header_multi)
     header = Header.from_string(header)
     assert header.slug == "/guides/app/features/panels/weave"
     assert header.displayed_sidebar == "default"
