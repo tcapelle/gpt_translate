@@ -1,9 +1,13 @@
 import re, yaml
 import logging
+from rich.logging import RichHandler
 from pathlib import Path
 from dataclasses import dataclass, asdict, field
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level="INFO", format="%(message)s", datefmt="[%X]", handlers=[RichHandler()]
+)
+log = logging.getLogger("loader")
 
 def remove_markdown_comments(content):
     # Pattern to match HTML comment blocks
@@ -160,12 +164,12 @@ class MDPage:
     def update_links(self, new_links, targets_only=True):
         "Update the links in the content"
         if len(new_links) == len(self.links):
-            logging.info(f"The following links don't match: {new_links} vs {self.links}")
+            log.info(f"The following links don't match: {new_links} vs {self.links}")
             raise ValueError(f"Number of links don't match: {len(new_links)} vs {len(self.links)}")
-        logging.info(f"Maybe updating links in {self.title}")
+        log.info(f"Maybe updating links in {self.title}")
         for old_link, new_link in zip(self.links, new_links):
             if old_link.target != new_link.target:
-                logging.info(f"Replacing {old_link} with {new_link}")
+                log.info(f"Replacing {old_link} with {new_link}")
                 self.content = self.content.replace(old_link.target, new_link.target)
         if targets_only:
             self.links = self.find_links()

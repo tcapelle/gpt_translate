@@ -1,5 +1,6 @@
 import yaml
 import logging
+from rich.logging import RichHandler
 from pathlib import Path
 import aiohttp
 import asyncio
@@ -16,14 +17,20 @@ from gpt_translate.loader import remove_markdown_comments, split_markdown, MDPag
 from gpt_translate.utils import count_tokens, measure_execution_time, get_md_files, file_is_empty
 
 
-logging.basicConfig(level=logging.INFO)
-
+logging.basicConfig(
+    level="NOTSET", format="%(message)s", datefmt="[%X]", handlers=[RichHandler()]
+)
+log = logging.getLogger("rich")
+log.info("Hello, World!")
 client = AsyncOpenAI()
-semaphore = asyncio.Semaphore(5)  # Adjust the limit as needed
 
-MAX_CHUNK_TOKENS = 2000
+## Global variables
+MAX_CHUNK_TOKENS = 4000
 REPLACE = False
 REMOVE_COMMENTS = True
+MAX_OPENAI_CONCURRENT_CALLS = 7 # Adjust the limit as needed
+semaphore = asyncio.Semaphore(MAX_OPENAI_CONCURRENT_CALLS)
+
 
 @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
 async def completion_with_backoff(**kwargs):
@@ -35,14 +42,14 @@ async def translate_chunk(chunk:str, prompt:PromptTemplate, **model_args):
     prompt: PromptTemplate object
     return: translated chunk
     """
-    logging.info(f"Calling OpenAI with {model_args}\nTranslating chunk: {chunk[:100]}...")
     async with semaphore:
+        log.info(f"[bold red blink]Calling OpenAI [/bold red blink]with {model_args}\nTranslating chunk: {chunk[:100]}...", extra={"markup": True})
         res = await completion_with_backoff(
             messages=prompt.format(md_chunk=chunk), 
             **model_args)
         output = res.choices[0].message.content
-        logging.info(f"OpenAI response: {output[:100]}...")
-        logging.debug(res.usage)
+        log.info(f"OpenAI response: {output[:100]}...")
+        log.debug(res.usage)
         return output
 
 @measure_execution_time
@@ -71,17 +78,17 @@ async def translate_splitted_md(
         n_tokens = count_tokens(chunk)
 
         if packed_chunks_len + n_tokens <= max_chunk_tokens:
-            logging.debug(f"Packing chunk {i} with {n_tokens} tokens")
+            log.debug(f"Packing chunk {i} with {n_tokens} tokens")
             packed_chunks += sep + chunk
             packed_chunks_len += n_tokens
         else:
-            logging.debug(f">> Translating {packed_chunks_len} tokens")
+            log.debug(f">> Translating {packed_chunks_len} tokens")
             tasks.append(translate_chunk(packed_chunks, prompt, **model_args))
             packed_chunks = chunk
             packed_chunks_len = n_tokens
     
     if packed_chunks:
-        logging.debug(f">> Translating {packed_chunks_len} tokens (last chunk)")
+        log.debug(f">> Translating {packed_chunks_len} tokens (last chunk)")
         tasks.append(translate_chunk(packed_chunks, prompt, **model_args))
 
     translated_chunks = await asyncio.gather(*tasks)
@@ -100,14 +107,14 @@ class Translator:
         self.max_chunk_tokens = max_chunk_tokens
         with open(self.config_folder / "model_config.yaml", 'r') as file:
             self.model_args = yaml.safe_load(file)
-            logging.info(f"Model args: {self.model_args}")
+            log.info(f"Model args: {self.model_args}")
     
     async def translate_file(self, md_file:str, remove_comments:bool=True):
         """Translate a markdown file asynchronously"""
         with open(md_file, "r") as f:
             md_content = f.read()
         if remove_comments:
-            logging.info("Removing comments")
+            log.info("Removing comments")
             md_content = remove_markdown_comments(md_content)
         md_page = MDPage.create(md_file, md_content)
         chunks = split_markdown(md_page.content)
@@ -137,7 +144,7 @@ async def _translate_file(
         raise ValueError(f"File {input_file} is not a markdown file")
     out_file = Path(out_file)
     if out_file.exists() and not replace and not file_is_empty(out_file):
-        logging.info(f"File {out_file} already exists. Use --replace to overwrite.")
+        log.info(f"File {out_file} already exists. Use --replace to overwrite.")
     else:
         out_file.parent.mkdir(parents=True, exist_ok=True)
         try:
@@ -145,9 +152,9 @@ async def _translate_file(
             translated_file = await translator.translate_file(input_file, remove_comments)
             with open(out_file, "w") as f:
                 f.write(translated_file)
-            logging.info(f"Translated file saved to {out_file}")
+            log.info(f"Translated file saved to {out_file}")
         except Exception as e:
-            logging.error(f"Error translating {input_file}: {e}")
+            log.error(f"Error translating {input_file}: {e}")
 
 async def _translate_files(
     input_files: list[str], # Files to translate
@@ -169,7 +176,6 @@ async def _translate_files(
     for md_file in input_files:
         out_file = out_folder / md_file.relative_to(input_folder)
         tasks.append(_translate_file(str(md_file), str(out_file), max_chunk_tokens, replace, language, config_folder, remove_comments))
-    
     await asyncio.gather(*tasks)
 
 @call_parse
@@ -213,7 +219,7 @@ def translate_folder(
 ):
     """Translate all markdown files in a folder respecting the folder hierarchy"""
     input_files = get_md_files(input_folder)[:limit]
-    logging.info(f"Translating {len(input_files)} files")
+    log.info(f"Translating {len(input_files)} files")
     asyncio.run(_translate_files(input_files, input_folder, out_folder, max_chunk_tokens, 
                                  replace, language, config_folder, remove_comments))
 

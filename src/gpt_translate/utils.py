@@ -1,12 +1,16 @@
 import time
 import logging
+from rich.logging import RichHandler
 from pathlib import Path
 
 from fastcore.xtras import globtastic
 import tiktoken
 
 MODEL = "gpt-4"
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level="NOTSET", format="%(message)s", datefmt="[%X]", handlers=[RichHandler()]
+)
+log = logging.getLogger("utils")
 
 def measure_execution_time(func):
     def wrapper(*args, **kwargs):
@@ -14,7 +18,7 @@ def measure_execution_time(func):
         result = func(*args, **kwargs)
         end_time = time.perf_counter()
         elapsed_time = end_time - start_time
-        logging.info(f"Function {func.__name__} took {elapsed_time:.4f} seconds to execute.")
+        log.info(f"Function {func.__name__} took {elapsed_time:.4f} seconds to execute.")
         return result
     return wrapper
 
