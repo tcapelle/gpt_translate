@@ -135,10 +135,11 @@ async def _translate_file(
     # check it is a md file
     if Path(input_file).suffix != ".md":
         raise ValueError(f"File {input_file} is not a markdown file")
-
-    if Path(out_file).exists() and not replace and not file_is_empty(out_file):
+    out_file = Path(out_file)
+    if out_file.exists() and not replace and not file_is_empty(out_file):
         logging.info(f"File {out_file} already exists. Use --replace to overwrite.")
     else:
+        out_file.parent.mkdir(parents=True, exist_ok=True)
         try:
             translator = Translator(config_folder, language, max_chunk_tokens)
             translated_file = await translator.translate_file(input_file, remove_comments)
@@ -147,6 +148,7 @@ async def _translate_file(
             logging.info(f"Translated file saved to {out_file}")
         except Exception as e:
             logging.error(f"Error translating {input_file}: {e}")
+
 async def _translate_files(
     input_files: list[str], # Files to translate
     input_folder: str, # folder where the file lives
@@ -166,7 +168,6 @@ async def _translate_files(
     tasks = []
     for md_file in input_files:
         out_file = out_folder / md_file.relative_to(input_folder)
-        out_file.parent.mkdir(parents=True, exist_ok=True)
         tasks.append(_translate_file(str(md_file), str(out_file), max_chunk_tokens, replace, language, config_folder, remove_comments))
     
     await asyncio.gather(*tasks)
