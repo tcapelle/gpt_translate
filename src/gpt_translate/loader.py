@@ -3,8 +3,6 @@ import logging
 from pathlib import Path
 from dataclasses import dataclass, asdict, field
 
-log = logging.getLogger(__name__)
-
 def remove_markdown_comments(content):
     # Pattern to match HTML comment blocks
     comment_pattern = re.compile(r'<!--.*?-->', re.DOTALL)
@@ -160,12 +158,12 @@ class MDPage:
     def update_links(self, new_links, targets_only=True):
         "Update the links in the content"
         if len(new_links) == len(self.links):
-            log.error(f"The following links don't match: {new_links} vs {self.links}")
+            logging.error(f"The following links don't match: {new_links} vs {self.links}")
             raise ValueError(f"Number of links don't match: {len(new_links)} vs {len(self.links)}")
-        log.debug(f"Maybe updating links in {self.title}")
+        logging.debug(f"Maybe updating links in {self.title}")
         for old_link, new_link in zip(self.links, new_links):
             if old_link.target != new_link.target:
-                log.debug(f"Replacing {old_link} with {new_link}")
+                logging.debug(f"Replacing {old_link} with {new_link}")
                 self.content = self.content.replace(old_link.target, new_link.target)
         if targets_only:
             self.links = self.find_links()
