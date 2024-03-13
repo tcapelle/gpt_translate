@@ -12,7 +12,7 @@ This is a tool to translate the language in Markdown files.
 ## Installation
 We have a stable version on PyPi, so you can install it with pip:
 ```bash
-$ pip install gpt_translate
+$ pip install gpt-translate
 ```
 or to get latest version from the repo:
 
