@@ -1,6 +1,6 @@
 docs/
 docs_es/
-
+translated/
 # python
 *.pyc
 .pytest_cache/
