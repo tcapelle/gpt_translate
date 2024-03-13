@@ -27,7 +27,6 @@ def setup_logging(debug=False, silence_openai=True):
         logging.getLogger('httpcore').setLevel(logging.WARNING)
         logging.getLogger('openai').setLevel(logging.WARNING)
         logging.getLogger("httpx").setLevel(logging.WARNING)
-    print(logging.Logger.manager.loggerDict.keys())
 
 # Use the OpenAI API in async mode
 client = AsyncOpenAI()
