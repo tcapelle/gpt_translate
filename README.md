@@ -1,9 +1,11 @@
 [![PyPI version](https://badge.fury.io/py/gpt_translate.svg)](https://badge.fury.io/py/gpt_translate)
 
 # gpt_translate
-
-
 This is a tool to translate the language in Markdown files.
+
+![](assets/screenshot.png)
+
+
 
 > You will need and OpenAI API key to use this tool.
 
@@ -38,3 +40,12 @@ If you don't know what to do, you can always do:
 ```bash
 $ gpt_translate --help
 ```
+
+## TroubleShooting
+
+If you have any trouble with the installation, you can always pass the `--debug` flag to get more information about what is happening:
+
+```bash
+$ gpt_translate.folder docs docs_ja --language ja --debug
+```
+this will get you a very verbose output (calls to models, inputs and outputs, etc.)
