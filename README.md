@@ -1,6 +1,6 @@
 [![PyPI version](https://badge.fury.io/py/gpt_translate.svg)](https://badge.fury.io/py/gpt_translate)
 
-# gpt_translate
+# gpt_translate: Translating MD files with GPT-4
 This is a tool to translate the language in Markdown files.
 
 ![](assets/screenshot.png)
@@ -10,7 +10,11 @@ This is a tool to translate the language in Markdown files.
 > You will need and OpenAI API key to use this tool.
 
 ## Installation
-You have to clone the repo and then do:
+We have a stable version on PyPi, so you can install it with pip:
+```bash
+$ pip install gpt_translate
+```
+or to get latest version from the repo:
 
 ```bash
 $ cd gpt_translate
