@@ -1,3 +1,5 @@
+StarRocks: StarRocks
+starrocks: starrocks
 Data loading: 数据导入
 Data unloading: 数据导出
 native table : 原生表 
