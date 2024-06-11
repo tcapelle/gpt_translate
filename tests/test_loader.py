@@ -1,4 +1,9 @@
-from gpt_translate.loader import remove_markdown_comments, split_markdown, Header, extract_header
+from gpt_translate.loader import (
+    remove_markdown_comments,
+    split_markdown,
+    Header,
+    extract_header,
+)
 
 
 def test_remove_markdown_comments():
@@ -11,11 +16,15 @@ More content
 """
     cleaned_content = remove_markdown_comments(markdown_content)
 
-    assert cleaned_content == """
+    assert (
+        cleaned_content
+        == """
 Some content
 
 More content
 """
+    )
+
 
 def test_split_markdown():
     # Example usage with your Markdown content
@@ -32,8 +41,12 @@ Content under header 2
     chunks = split_markdown(markdown_content)
 
     # no line breaks
-    assert chunks[2] == """## Header 1.1
+    assert (
+        chunks[2]
+        == """## Header 1.1
 Content under header 1.1"""
+    )
+
 
 def test_header():
     header_ref = """
@@ -49,7 +62,7 @@ displayed_sidebar: default
 ---
 """
 
-    header_multi="""
+    header_multi = """
 ---
 slug: /guides/app/features/panels/weave
 description: >-
@@ -78,4 +91,7 @@ displayed_sidebar: default
     header = Header.from_string(header)
     assert header.slug == "/guides/app/features/panels/weave"
     assert header.displayed_sidebar == "default"
-    assert header.description == "Some features on this page are in beta, hidden behind a feature flag. Add `weave-plot` to your bio on your profile page to unlock all related features."
+    assert (
+        header.description
+        == "Some features on this page are in beta, hidden behind a feature flag. Add `weave-plot` to your bio on your profile page to unlock all related features."
+    )
