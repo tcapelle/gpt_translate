@@ -26,6 +26,11 @@ We use GPT4 by default. You can change this on `configs/model_config.yaml`
 
 > You can add new languages by providing the language translation dictionaries in `configs/language_dicts`
 
+Export your OpenAI API key:
+
+```bash
+export OPENAI_API_KEY=aa-proj-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+```
 
 To translate a single file:
 
