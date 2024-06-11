@@ -47,7 +47,13 @@ $ gpt_translate.folder docs docs_ja --language ja
 If you don't know what to do, you can always do:
 
 ```bash
-$ gpt_translate --help
+$ gpt_translate.file --help
+```
+
+or:
+
+```bash
+$ gpt_translate.folder --help
 ```
 
 ## TroubleShooting
