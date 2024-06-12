@@ -22,10 +22,8 @@ def measure_execution_time(func):
     return wrapper
 
 
-def file_is_empty(file: Path):
-    with open(file, "r", encoding="utf-8") as file:
-        content = file.read()
-        return not content.strip()
+def file_is_empty(file: str | Path):
+    return not Path(file).read_text().strip()
 
 
 def get_md_files(path: Path | str, files_glob: str = "*.md", file_re: str = None):
