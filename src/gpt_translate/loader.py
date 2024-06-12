@@ -50,26 +50,27 @@ def split_markdown(content):
 
 
 @dataclass
-class MDLlink:
+class MDLink:
     title: str
     target: str
+    filename: str
     line_number: str
 
     def __str__(self):
-        return f"{self.line_number:>4}: [{self.title}]({self.target})"
+        return f"{self.filename}:{self.line_number:>4}: [{self.title}]({self.target})"
 
     def __eq__(self, other):
         return self.target == other.target
 
 
-def extract_markdown_links(content):
+def extract_markdown_links(filename, content):
     # This regular expression matches the Markdown link syntax
     link_pattern = r"\[([^\]]+)\]\(([^)]+)\)"
     links = []
     for i, line in enumerate(content.split("\n")):
         matches = re.findall(link_pattern, line)
         for title, target in matches:
-            links.append(MDLlink(title, target, i + 1))
+            links.append(MDLink(title, target, filename, i + 1))
     return links
 
 
@@ -120,45 +121,51 @@ class Header(weave.Object):
 
 
 @weave.op
-def extract_header(content: str) -> tuple[str, str]:
+def extract_header(content: str) -> dict:
     "Extract header from a markdown file, everything before the title and the rest of the content"
     header = ""
     for line in content.split("\n"):
         if line.startswith("# "):
             break
         header += line + "\n"
-    return header, content[len(header) :]
+    return {"header": header, "content": content[len(header):]}
 
 
 class MDPage(weave.Object):
-    title: str = "Title"
+    filename: str = "file.md"
     raw_content: str = "Content"
     header: Header = Field(default=None)
-    links: list[MDLlink] = Field(default=None)
+    links: list[MDLink] = Field(default=None)
     content: str = Field(init=False)
 
     @model_validator(mode="before")
     def initialize_fields(cls, values):
         raw_content = values.get("raw_content", "")
-        header, content = extract_header(raw_content)
+        extracted = extract_header(raw_content)
+        header = extracted["header"]
+        content = extracted["content"]
         values["header"] = Header.from_string(header)
         values["content"] = content
-        values["links"] = cls.find_links(raw_content)
         return values
+
+    @model_validator(mode="after")
+    def set_links(self):
+        self.links = self.find_links(self.raw_content)
+        return self
 
     @weave.op
     def from_translated(
         self, translated_content: str, fix_links: bool = True
     ) -> "MDPage":
         translated_page = MDPage(
-            title=self.title, raw_content=f"{self.header}\n{translated_content}"
+            filename=self.filename, raw_content=f"{self.header}\n{translated_content}"
         )
         if fix_links:
             translated_page.update_links(self.links)
         return translated_page
 
     @weave.op
-    def find_links(cls, raw_content: str) -> list[MDLlink]:
+    def find_links(self, raw_content: str) -> list[MDLink]:
         """
         Finds all Markdown links in the content.
         :return: list of tuples, each containing (link text, URL).
@@ -168,11 +175,11 @@ class MDPage(weave.Object):
         for i, line in enumerate(raw_content.split("\n")):
             matches = re.findall(link_pattern, line)
             for title, target in matches:
-                links.append(MDLlink(title, target, i + 1))
+                links.append(MDLink(title, target, self.filename, i + 1))
         return links
 
     @weave.op
-    def update_links(self, new_links: list[MDLlink], targets_only=True) -> None:
+    def update_links(self, new_links: list[MDLink], targets_only=True) -> None:
         "Update the links in the content"
         if len(new_links) == len(self.links):
             logging.error(
@@ -181,7 +188,7 @@ class MDPage(weave.Object):
             raise ValueError(
                 f"Number of links don't match: {len(new_links)} vs {len(self.links)}"
             )
-        logging.debug(f"Maybe updating links in {self.title}")
+        logging.debug(f"Maybe updating links in {self.filename}")
         for old_link, new_link in zip(self.links, new_links):
             if old_link.target != new_link.target:
                 logging.debug(f"Replacing {old_link} with {new_link}")
@@ -194,24 +201,3 @@ class MDPage(weave.Object):
     def __str__(self):
         "Concatenate header and content"
         return f"{self.header}\n{self.content}"
-
-
-class Page(weave.Object):
-    title: str = "Title"
-    raw_content: str = "Content"
-    header: Optional[Header] = None
-
-    @model_validator(mode="after")
-    def initialize_fields(cls, values):
-        raw_content = values.get("raw_content", "")
-        header, content = extract_header(raw_content)
-        values["header"] = Header.from_string(header)
-        values["content"] = content
-        values["links"] = cls.find_links(raw_content)
-        return values
-
-    @classmethod
-    def create(cls, title: str, md_content: str):
-        print(f"Creating {title}, {md_content}")
-        instance = cls(title=title, raw_content=md_content, header=None, links=None)
-        return cls.model_validate(instance)
