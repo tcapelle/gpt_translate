@@ -13,6 +13,7 @@ from tenacity import (
 from fastcore.script import call_parse, Param, store_true, store_false
 
 import weave
+from pydantic import model_validator, Field
 
 from gpt_translate.prompts import PromptTemplate
 from gpt_translate.loader import remove_markdown_comments, split_markdown, MDPage
@@ -120,23 +121,34 @@ async def translate_splitted_md(
     return sep.join(translated_chunks)
 
 
-class Translator:
+class Translator(weave.Object):
     "A class to translate markdown files asynchronously"
 
-    def __init__(
-        self, config_folder, language="ja", max_chunk_tokens: int = MAX_CHUNK_TOKENS
-    ):
-        self.config_folder = Path(config_folder)
-        self.language = language
-        self.prompt_template = PromptTemplate.from_files(
-            self.config_folder / "system_prompt.txt",
-            self.config_folder / "human_prompt.txt",
-            self.config_folder / f"language_dicts/{language}.yaml",
+    config_folder: Path
+    language: str = "ja"
+    max_chunk_tokens: int = MAX_CHUNK_TOKENS
+    prompt_template: PromptTemplate = Field(default=None)
+    model_args: dict = Field(default=None)
+
+    @model_validator(mode="before")
+    def initialize_fields(cls, values):
+        config_folder = Path(values.get("config_folder"))
+        language = values.get("language", "ja")
+        prompt_template = PromptTemplate.from_files(
+            config_folder / "system_prompt.txt",
+            config_folder / "human_prompt.txt",
+            config_folder / f"language_dicts/{language}.yaml",
         )
-        self.max_chunk_tokens = max_chunk_tokens
-        with open(self.config_folder / "model_config.yaml", "r") as file:
-            self.model_args = yaml.safe_load(file)
-            logging.debug(f"Model args: {self.model_args}")
+        with open(config_folder / "model_config.yaml", "r") as file:
+            model_args = yaml.safe_load(file)
+            logging.debug(f"Model args: {model_args}")
+        
+        values.update({
+            "config_folder": config_folder,
+            "prompt_template": prompt_template,
+            "model_args": model_args
+        })
+        return values
 
     @weave.op
     async def translate_file(self, md_file: str, remove_comments: bool = True):
@@ -146,7 +158,7 @@ class Translator:
         if remove_comments:
             logging.debug("Removing comments")
             md_content = remove_markdown_comments(md_content)
-        md_page = MDPage(title=md_file, raw_content=md_content)
+        md_page = MDPage(filename=md_file, raw_content=md_content)
         chunks = split_markdown(md_page.content)
         translated_content = await translate_splitted_md(
             chunks,
@@ -155,7 +167,7 @@ class Translator:
             **self.model_args,
         )
         translated_page = md_page.from_translated(translated_content, fix_links=False)
-        return str(translated_page)
+        return translated_page
 
 
 @weave.op
@@ -167,7 +179,7 @@ async def _translate_file(
     language: str = "es",  # Language to translate to
     config_folder: str = "./configs",  # Config folder
     remove_comments: bool = REMOVE_COMMENTS,  # Remove comments
-):
+) -> MDPage:
     """Translate a markdown file asynchronously"""
     if file_is_empty(input_file):
         raise ValueError(f"File {input_file} is empty")
@@ -181,16 +193,17 @@ async def _translate_file(
     else:
         out_file.parent.mkdir(parents=True, exist_ok=True)
         try:
-            translator = Translator(config_folder, language, max_chunk_tokens)
-            translated_file = await translator.translate_file(
+            translator = Translator(config_folder=config_folder, language=language, max_chunk_tokens=max_chunk_tokens)
+            translated_page = await translator.translate_file(
                 input_file, remove_comments
             )
             with open(out_file, "w") as f:
-                f.write(translated_file)
+                f.write(str(translated_page))
             logging.info(
                 f"✅ Translated file saved to [green]{out_file}[/green]",
                 extra={"markup": True},
             )
+            return translated_page
         except Exception as e:
             raise e
             logging.error(f"Error translating {input_file}: {e}")
