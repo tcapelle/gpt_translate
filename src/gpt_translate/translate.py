@@ -18,6 +18,7 @@ from pydantic import model_validator, Field
 from gpt_translate.prompts import PromptTemplate
 from gpt_translate.loader import remove_markdown_comments, split_markdown, MDPage
 from gpt_translate.utils import count_tokens, get_md_files, file_is_empty
+from gpt_translate.validate import validate_links, validate_headers
 
 
 def setup_logging(debug=False, silence_openai=True):
@@ -39,7 +40,6 @@ def setup_logging(debug=False, silence_openai=True):
 client = AsyncOpenAI()
 
 ## Global
-MAX_CHUNK_TOKENS = 4000
 REPLACE = False
 REMOVE_COMMENTS = True
 MAX_OPENAI_CONCURRENT_CALLS = 7  # Adjust the limit as needed
@@ -56,19 +56,19 @@ async def completion_with_backoff(**kwargs):
 
 
 @weave.op
-async def translate_chunk(chunk: str, prompt: PromptTemplate, **model_args):
+async def translate_page(md_content: str, prompt: PromptTemplate, **model_args):
     """Translate a markdown chunk asynchronously
-    chunk: markdown chunk
+    md_content: markdown content
     prompt: PromptTemplate object
-    return: translated chunk
+    return: translated page
     """
     async with semaphore:
         logging.debug(
-            f"[bold red blink]Calling OpenAI [/bold red blink]with {model_args}\nTranslating chunk: {chunk[:100]}...",
+            f"[bold red blink]Calling OpenAI [/bold red blink]with {model_args}\nTranslating page: {md_content[:100]}...",
             extra={"markup": True},
         )
         res = await completion_with_backoff(
-            messages=prompt.format(md_chunk=chunk), **model_args
+            messages=prompt.format(md_chunk=md_content), **model_args
         )
         output = res.choices[0].message.content
         logging.debug(
@@ -78,55 +78,12 @@ async def translate_chunk(chunk: str, prompt: PromptTemplate, **model_args):
         return output
 
 
-@weave.op
-async def translate_splitted_md(
-    splitted_markdown: list[str],
-    prompt: PromptTemplate,
-    max_chunk_tokens: int = MAX_CHUNK_TOKENS,
-    sep: str = "\n\n",
-    **model_args,
-) -> str:
-    """Translate a list of markdown chunks asynchronously
-    splitted_markdown: list of markdown chunks
-    prompt: PromptTemplate object
-    max_chunk_tokens: maximum number of tokens per chunk
-    sep: separator between chunks
-    model_args: arguments to pass to the completion_with_backoff function
-    return: translated markdown file
-    """
-
-    tasks = []
-    packed_chunks = ""
-    packed_chunks_len = 0
-
-    for i, chunk in enumerate(splitted_markdown):
-
-        n_tokens = count_tokens(chunk)
-
-        if packed_chunks_len + n_tokens <= max_chunk_tokens:
-            logging.debug(f"Packing chunk {i} with {n_tokens} tokens")
-            packed_chunks += sep + chunk
-            packed_chunks_len += n_tokens
-        else:
-            logging.debug(f">> Translating {packed_chunks_len} tokens")
-            tasks.append(translate_chunk(packed_chunks, prompt, **model_args))
-            packed_chunks = chunk
-            packed_chunks_len = n_tokens
-
-    if packed_chunks:
-        logging.debug(f">> Translating {packed_chunks_len} tokens (last chunk)")
-        tasks.append(translate_chunk(packed_chunks, prompt, **model_args))
-
-    translated_chunks = await asyncio.gather(*tasks)
-    return sep.join(translated_chunks)
-
-
 class Translator(weave.Object):
     "A class to translate markdown files asynchronously"
 
     config_folder: Path
     language: str = "ja"
-    max_chunk_tokens: int = MAX_CHUNK_TOKENS
+    validate: bool = True
     prompt_template: PromptTemplate = Field(default=None)
     model_args: dict = Field(default=None)
 
@@ -159,26 +116,45 @@ class Translator(weave.Object):
             logging.debug("Removing comments")
             md_content = remove_markdown_comments(md_content)
         md_page = MDPage(filename=md_file, raw_content=md_content)
-        chunks = split_markdown(md_page.content)
-        translated_content = await translate_splitted_md(
-            chunks,
+        translated_content = await translate_page(
+            md_page.content,
             self.prompt_template,
-            max_chunk_tokens=self.max_chunk_tokens,
             **self.model_args,
         )
         translated_page = md_page.from_translated(translated_content, fix_links=False)
+        # translate header description
+        if md_page.header.description:
+            logging.debug(f"Translating header description: {md_page.header.description}")
+            translated_page.header.description = await translate_page(
+                md_page.header.description, self.prompt_template, **self.model_args
+            )
+        if self.validate:
+            links_validation = validate_links(md_page, translated_page)
+            headers_validation = validate_headers(md_page, translated_page)
+            logging.debug(f"✅ Links validation: {links_validation}")
+            logging.debug(f"✅ Headers validation: {headers_validation}")
+            translation_validation = await self.validate_translation(md_page, translated_page)
+            logging.debug(f"✅ Translation validation: {translation_validation}")
         return translated_page
 
+    @weave.op
+    async def validate_translation(self, md_page: MDPage, translated_page: MDPage):
+        """Validate the translation"""
+        messages = self.prompt_template.format(md_chunk=md_page.content)
+        messages.append({"role": "assistant", "content": f"{translated_page.content}"})
+        messages.append({"role": "user", "content": "How good is the translation regarding the instructions you were given? Provide a detailed analysis."})
+        res = await completion_with_backoff(messages=messages, **self.model_args)
+        return {"analysis": res.choices[0].message.content}
 
 @weave.op
 async def _translate_file(
     input_file: str,  # File to translate
     out_file: str,  # File to save the translated file to
-    max_chunk_tokens: int = MAX_CHUNK_TOKENS,  # Max tokens per chunk
     replace: bool = REPLACE,  # Replace existing file
     language: str = "es",  # Language to translate to
     config_folder: str = "./configs",  # Config folder
     remove_comments: bool = REMOVE_COMMENTS,  # Remove comments
+    validate: bool = True,  # Validate the translated file
 ) -> MDPage:
     """Translate a markdown file asynchronously"""
     if file_is_empty(input_file):
@@ -193,7 +169,7 @@ async def _translate_file(
     else:
         out_file.parent.mkdir(parents=True, exist_ok=True)
         try:
-            translator = Translator(config_folder=config_folder, language=language, max_chunk_tokens=max_chunk_tokens)
+            translator = Translator(config_folder=config_folder, language=language, validate=validate)
             translated_page = await translator.translate_file(
                 input_file, remove_comments
             )
@@ -214,7 +190,6 @@ async def _translate_files(
     input_files: list[str],  # Files to translate
     input_folder: str,  # folder where the file lives
     out_folder: str,  # Folder to save the translated files to
-    max_chunk_tokens: int = MAX_CHUNK_TOKENS,  # Max tokens per chunk
     replace: bool = REPLACE,  # Replace existing file
     language: str = "es",  # Language to translate to
     config_folder: str = "./configs",  # Config folder
@@ -223,7 +198,6 @@ async def _translate_files(
     input_files = [Path(f) for f in input_files if Path(f).suffix == ".md"]
     logging.info(
         f"Translating {len(input_files)} files\n"
-        f"Max tokens per chunk: {max_chunk_tokens}\n"
         f"Max concurrent calls to OpenAI: {MAX_OPENAI_CONCURRENT_CALLS}\n"
         f"Removing comments: {remove_comments}\n"
         f"Replace existing files: {replace}\n"
@@ -243,7 +217,6 @@ async def _translate_files(
             _translate_file(
                 str(md_file),
                 str(out_file),
-                max_chunk_tokens,
                 replace,
                 language,
                 config_folder,
@@ -257,7 +230,6 @@ async def _translate_files(
 def translate_file(
     input_file: Param("File to translate", str),
     out_file: Param("File to save the translated file to", str),
-    max_chunk_tokens: Param("Max tokens per chunk", int) = MAX_CHUNK_TOKENS,
     replace: Param("Replace existing file", store_true) = REPLACE,
     language: Param("Language to translate to", str) = "es",
     config_folder: Param("Config folder", str) = "./configs",
@@ -269,7 +241,6 @@ def translate_file(
         _translate_file(
             input_file,
             out_file,
-            max_chunk_tokens,
             replace,
             language,
             config_folder,
@@ -283,7 +254,6 @@ def translate_files(
     input_files: Param("Files to translate", nargs="+"),
     input_folder: Param("Folder to translate", str) = "docs/",
     out_folder: Param("Folder to save the translated files to", str) = "translated/",
-    max_chunk_tokens: Param("Max tokens per chunk", int) = MAX_CHUNK_TOKENS,
     replace: Param("Replace existing file", store_true) = REPLACE,
     language: Param("Language to translate to", str) = "es",
     config_folder: Param("Config folder", str) = "./configs",
@@ -296,7 +266,6 @@ def translate_files(
             input_files,
             input_folder,
             out_folder,
-            max_chunk_tokens,
             replace,
             language,
             config_folder,
@@ -309,7 +278,6 @@ def translate_files(
 def translate_folder(
     input_folder: Param("Folder to translate", str),
     out_folder: Param("Folder to save the translated files to", str) = "translated/",
-    max_chunk_tokens: Param("Max tokens per chunk", int) = MAX_CHUNK_TOKENS,
     replace: Param("Replace existing files", store_true) = REPLACE,
     language: Param("Language to translate to", str) = "es",
     config_folder: Param("Config folder", str) = "./configs",
@@ -325,7 +293,6 @@ def translate_folder(
             input_files,
             input_folder,
             out_folder,
-            max_chunk_tokens,
             replace,
             language,
             config_folder,
