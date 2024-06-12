@@ -1,4 +1,5 @@
 import yaml
+import json
 import logging
 from rich.logging import RichHandler
 from pathlib import Path
@@ -62,20 +63,15 @@ async def translate_page(md_content: str, prompt: PromptTemplate, **model_args):
     prompt: PromptTemplate object
     return: translated page
     """
-    async with semaphore:
-        logging.debug(
-            f"[bold red blink]Calling OpenAI [/bold red blink]with {model_args}\nTranslating page: {md_content[:100]}...",
-            extra={"markup": True},
-        )
-        res = await completion_with_backoff(
-            messages=prompt.format(md_chunk=md_content), **model_args
-        )
-        output = res.choices[0].message.content
-        logging.debug(
-            f"[blue]OpenAI response:\n{output[:100]}...[/blue]", extra={"markup": True}
-        )
-        logging.debug(res.usage)
-        return output
+    res = await completion_with_backoff(
+        messages=prompt.format(md_chunk=md_content), **model_args
+    )
+    output = res.choices[0].message.content
+    logging.debug(
+        f"[blue]OpenAI response:\n{output[:100]}...[/blue]", extra={"markup": True}
+    )
+    logging.debug(res.usage)
+    return output
 
 
 class Translator(weave.Object):
@@ -99,12 +95,14 @@ class Translator(weave.Object):
         with open(config_folder / "model_config.yaml", "r") as file:
             model_args = yaml.safe_load(file)
             logging.debug(f"Model args: {model_args}")
-        
-        values.update({
-            "config_folder": config_folder,
-            "prompt_template": prompt_template,
-            "model_args": model_args
-        })
+
+        values.update(
+            {
+                "config_folder": config_folder,
+                "prompt_template": prompt_template,
+                "model_args": model_args,
+            }
+        )
         return values
 
     @weave.op
@@ -116,6 +114,10 @@ class Translator(weave.Object):
             logging.debug("Removing comments")
             md_content = remove_markdown_comments(md_content)
         md_page = MDPage(filename=md_file, raw_content=md_content)
+        logging.debug(
+            f"[bold red blink]Calling OpenAI [/bold red blink]with {self.model_args}\nFile: {md_file}\nContent: {md_content[:100]}...",
+            extra={"markup": True},
+        )
         translated_content = await translate_page(
             md_page.content,
             self.prompt_template,
@@ -124,7 +126,9 @@ class Translator(weave.Object):
         translated_page = md_page.from_translated(translated_content, fix_links=False)
         # translate header description
         if md_page.header.description:
-            logging.debug(f"Translating header description: {md_page.header.description}")
+            logging.debug(
+                f"Translating header description: {md_page.header.description}"
+            )
             translated_page.header.description = await translate_page(
                 md_page.header.description, self.prompt_template, **self.model_args
             )
@@ -133,18 +137,41 @@ class Translator(weave.Object):
             headers_validation = validate_headers(md_page, translated_page)
             logging.debug(f"✅ Links validation: {links_validation}")
             logging.debug(f"✅ Headers validation: {headers_validation}")
-            translation_validation = await self.validate_translation(md_page, translated_page)
+            translation_validation = await self.validate_translation(
+                md_page, translated_page
+            )
             logging.debug(f"✅ Translation validation: {translation_validation}")
-        return translated_page
+            return {
+                "translated_page": translated_page,
+                "links_validation": links_validation,
+                "headers_validation": headers_validation,
+                "translation_validation": translation_validation,
+            }
+        return {"translated_page": translated_page}
 
     @weave.op
     async def validate_translation(self, md_page: MDPage, translated_page: MDPage):
         """Validate the translation"""
         messages = self.prompt_template.format(md_chunk=md_page.content)
         messages.append({"role": "assistant", "content": f"{translated_page.content}"})
-        messages.append({"role": "user", "content": "How good is the translation regarding the instructions you were given? Provide a detailed analysis."})
-        res = await completion_with_backoff(messages=messages, **self.model_args)
-        return {"analysis": res.choices[0].message.content}
+        validation_message = """How good is the translation regarding the instructions you were given? Provide a detailed analysis.
+        Return a json object with the following keys:
+        - analysis: a detailed analysis of the translation
+        - translation_rating: a rating from 1 to 10 indicating the quality of the translation
+        - product_words: A boolean indicating if the translation respects not translating product words
+        - code_comments: A boolean indicating if the code comments are translated correctly
+        - links: A boolean indicating if the links are translated correctly
+        """
+        messages.append({"role": "user", "content": validation_message})
+        res = await completion_with_backoff(
+            messages=messages,
+            **self.model_args,
+            response_format={"type": "json_object"},
+        )
+        extracted = res.choices[0].message.content
+        analysis = json.loads(extracted)
+        return analysis
+
 
 @weave.op
 async def _translate_file(
@@ -169,17 +196,20 @@ async def _translate_file(
     else:
         out_file.parent.mkdir(parents=True, exist_ok=True)
         try:
-            translator = Translator(config_folder=config_folder, language=language, validate=validate)
-            translated_page = await translator.translate_file(
-                input_file, remove_comments
+            translator = Translator(
+                config_folder=config_folder, language=language, validate=validate
             )
-            with open(out_file, "w") as f:
-                f.write(str(translated_page))
-            logging.info(
-                f"✅ Translated file saved to [green]{out_file}[/green]",
-                extra={"markup": True},
-            )
-            return translated_page
+            async with semaphore:
+                translation_results = await translator.translate_file(
+                    input_file, remove_comments
+                )
+                with open(out_file, "w", encoding="utf-8") as f:
+                    f.write(str(translation_results["translated_page"]))
+                logging.info(
+                    f"✅ Translated file saved to [green]{out_file}[/green]",
+                    extra={"markup": True},
+                )
+                return translation_results
         except Exception as e:
             raise e
             logging.error(f"Error translating {input_file}: {e}")

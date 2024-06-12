@@ -60,6 +60,7 @@ class MDLink:
         return f"{self.filename}:{self.line_number:>4}: [{self.title}]({self.target})"
 
     def __eq__(self, other):
+        "We only care to know if the link is still pointing to the same place"
         return self.target == other.target
 
 
@@ -114,10 +115,12 @@ class Header(weave.Object):
         # Convert the Pydantic model fields to a dictionary, then to a YAML-formatted string
         # Exclude the 'imports' field for the YAML content
         attrs = {k: v for k, v in self.model_dump().items() if v and k != "imports"}
-        yaml_content = yaml.safe_dump(attrs, sort_keys=False)
+        yaml_content = yaml.safe_dump(attrs, sort_keys=False, allow_unicode=True)
         # Include the imports at the beginning if any
         import_content = f"{self.imports}\n" if self.imports else ""
-        return f"---\n{yaml_content}---\n{import_content}"
+        return f"---\n{yaml_content}---\n{import_content}".encode("utf-8").decode(
+            "utf-8"
+        )
 
 
 @weave.op
@@ -128,7 +131,7 @@ def extract_header(content: str) -> dict:
         if line.startswith("# "):
             break
         header += line + "\n"
-    return {"header": header, "content": content[len(header):]}
+    return {"header": header, "content": content[len(header) :]}
 
 
 class MDPage(weave.Object):
