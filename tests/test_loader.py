@@ -49,49 +49,63 @@ Content under header 1.1"""
 
 
 def test_header():
-    header_ref = """
----
-description: Generated documentation for Weights & Biases APIs
----
-"""
 
-    header_guide = """
+    # test simple header
+    page = """
 ---
-slug: /guides/app/features/custom-charts
+description: description
+slug: /guides/app
 displayed_sidebar: default
 ---
+# title
 """
+    header = """---\ndescription: description\nslug: /guides/app\ndisplayed_sidebar: default\n---"""
+    extracted_header = extract_header(page)["header"]
+    assert extracted_header == header
+    header_obj = Header.from_string(extracted_header)
+    assert header_obj.description == "description"
+    assert header_obj.displayed_sidebar == "default"
+    assert header_obj.slug == "/guides/app"
+    assert str(header_obj) == header
 
-    header_multi = """
+    # test import
+    page = """
+import 1;
+import 2;
+import 3;
+
+# title
+"""
+    header = """import 1;\nimport 2;\nimport 3;"""
+    extracted_header = extract_header(page)["header"]
+    assert extracted_header == header
+    header_obj = Header.from_string(extracted_header)
+    assert header_obj.description == ""
+    assert header_obj.displayed_sidebar == ""
+    assert header_obj.slug == ""
+    assert header_obj.imports == "import 1;\nimport 2;\nimport 3;"
+    assert str(header_obj) == header
+
+    # test import + header
+    page = """
 ---
-slug: /guides/app/features/panels/weave
-description: >-
-    Some features on this page are in beta, hidden behind a feature flag. Add
-    `weave-plot` to your bio on your profile page to unlock all related features.
+description: description
+slug: /guides/app
 displayed_sidebar: default
 ---
+
+import 1;
+import 2;
+import 3;
+
+# title
 """
-
-    header, _ = extract_header("")
-    header = Header.from_string(header)
-    assert str(header) == ""
-
-    header, _ = extract_header(header_ref)
-    header = Header.from_string(header)
-    assert header.description == "Generated documentation for Weights & Biases APIs"
-    assert header.displayed_sidebar == ""
-    assert header.slug == ""
-
-    header, _ = extract_header(header_guide)
-    header = Header.from_string(header)
-    assert header.slug == "/guides/app/features/custom-charts"
-    assert header.displayed_sidebar == "default"
-
-    header, _ = extract_header(header_multi)
-    header = Header.from_string(header)
-    assert header.slug == "/guides/app/features/panels/weave"
-    assert header.displayed_sidebar == "default"
-    assert (
-        header.description
-        == "Some features on this page are in beta, hidden behind a feature flag. Add `weave-plot` to your bio on your profile page to unlock all related features."
-    )
+    header = """---\ndescription: description\nslug: /guides/app\ndisplayed_sidebar: default\n---\n\nimport 1;\nimport 2;\nimport 3;"""
+    extracted_header = extract_header(page)["header"]
+    assert extracted_header == header
+    header_obj = Header.from_string(extracted_header)
+    assert header_obj.description == "description"
+    assert header_obj.displayed_sidebar == "default"
+    assert header_obj.slug == "/guides/app"
+    assert header_obj.imports == "import 1;\nimport 2;\nimport 3;"
+    assert str(header_obj) == header

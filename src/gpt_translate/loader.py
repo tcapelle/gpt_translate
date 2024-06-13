@@ -101,11 +101,11 @@ class Header(weave.Object):
                 import_lines.append(line)
 
         # Parse the YAML content
-        attributes = yaml.safe_load("\n".join(yaml_lines))
+        attributes = yaml.safe_load("\n".join(yaml_lines)) or {}
         # Rejoin the import lines into a single string
         imports = "\n".join(import_lines).strip()
         if not attributes and not imports:
-            return ""
+            return cls()
         return cls(**attributes, imports=imports)
 
     def __repr__(self) -> str:
@@ -115,10 +115,18 @@ class Header(weave.Object):
         # Convert the Pydantic model fields to a dictionary, then to a YAML-formatted string
         # Exclude the 'imports' field for the YAML content
         attrs = {k: v for k, v in self.model_dump().items() if v and k != "imports"}
-        yaml_content = yaml.safe_dump(attrs, sort_keys=False, allow_unicode=True)
+        if not attrs:
+            yaml_content = ""
+        else:
+            yaml_content = yaml.safe_dump(attrs, sort_keys=False, allow_unicode=True)
+            yaml_content = f"---\n{yaml_content}---"
         # Include the imports at the beginning if any
-        import_content = f"{self.imports}\n" if self.imports else ""
-        return f"---\n{yaml_content}---\n{import_content}".encode("utf-8").decode(
+        if self.imports and yaml_content:
+            sep = "\n\n"
+        else:
+            sep = ""
+        import_content = f"{self.imports}" if self.imports else ""
+        return f"{yaml_content}{sep}{import_content}".encode("utf-8").decode(
             "utf-8"
         )
 
@@ -131,7 +139,8 @@ def extract_header(content: str) -> dict:
         if line.startswith("# "):
             break
         header += line + "\n"
-    return {"header": header, "content": content[len(header) :]}
+    header = header.rstrip("\n")
+    return {"header": header.strip(), "content": content[len(header):]}
 
 @weave.op
 def find_links(raw_content: str, filename: str) -> list[MDLink]:
@@ -202,4 +211,4 @@ class MDPage(weave.Object):
 
     def __str__(self):
         "Concatenate header and content"
-        return f"{self.header}\n{self.content}"
+        return f"{self.header}\n\n{self.content}"
