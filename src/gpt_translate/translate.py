@@ -25,6 +25,10 @@ from gpt_translate.validate import validate_links, validate_headers
 
 def setup_logging(debug=False, silence_openai=True, weave_project=None):
     """Setup logging"""
+    # Initialize weave
+    if weave_project:
+        weave.init(weave_project)
+    
     # Setup rich logger
     level = "DEBUG" if debug else "INFO"
     logging.basicConfig(
@@ -36,8 +40,7 @@ def setup_logging(debug=False, silence_openai=True, weave_project=None):
         logging.getLogger("httpcore").setLevel(logging.WARNING)
         logging.getLogger("openai").setLevel(logging.WARNING)
         logging.getLogger("httpx").setLevel(logging.WARNING)
-    if weave_project:
-        weave.init(weave_project)
+
 
 # Use the OpenAI API in async mode
 client = AsyncOpenAI()
@@ -78,8 +81,8 @@ class Translator(weave.Object):
 
     config_folder: Path
     language: str = "ja"
-    validate: bool = True
-    validation_prompt: str = Field(default=None)
+    do_evaluation: bool = True
+    evaluation_prompt: str = Field(default=None)
     prompt_template: PromptTemplate = Field(default=None)
     model_args: dict = Field(default=None)
 
@@ -92,10 +95,10 @@ class Translator(weave.Object):
             config_folder / "human_prompt.txt",
             config_folder / f"language_dicts/{language}.yaml",
         )
-        if (config_folder / "validation_prompt.txt").exists():
-            validation_prompt = (config_folder / "validation_prompt.txt").read_text()
+        if (config_folder / "evaluation_prompt.txt").exists():
+            evaluation_prompt = (config_folder / "evaluation_prompt.txt").read_text()
         else:
-            validation_prompt = None
+            evaluation_prompt = None
         with open(config_folder / "model_config.yaml", "r") as file:
             model_args = yaml.safe_load(file)
             logging.debug(f"Model args: {model_args}")
@@ -104,7 +107,7 @@ class Translator(weave.Object):
             {
                 "config_folder": config_folder,
                 "prompt_template": prompt_template,
-                "validation_prompt": validation_prompt,
+                "evaluation_prompt": evaluation_prompt,
                 "model_args": model_args,
             }
         )
@@ -131,9 +134,9 @@ class Translator(weave.Object):
             )
             translated_page.header.description = await self.translate_header_description(md_page)
             
-        if self.validate:
-            validation_results = await self.validation(md_page, translated_page)
-            return {"translated_page": translated_page, "validation_results": validation_results}
+        if self.evaluate:
+            evaluation_results = await self.evaluate(md_page, translated_page)
+            return {"translated_page": translated_page, "evaluation_results": evaluation_results}
         return {"translated_page": translated_page}
     
     @weave.op
@@ -154,13 +157,13 @@ class Translator(weave.Object):
         )
 
     @weave.op
-    async def validation(self, md_page: MDPage, translated_page: MDPage):
+    async def evaluate(self, md_page: MDPage, translated_page: MDPage):
         """Validate the translation"""
         links_validation = validate_links(md_page, translated_page)
         headers_validation = validate_headers(md_page, translated_page)
         logging.debug(f"✅ Links validation: {links_validation}")
         logging.debug(f"✅ Headers validation: {headers_validation}")
-        translation_validation = await self.validate_translation(
+        translation_validation = await self.evaluate_translation(
             md_page, translated_page
         )
         logging.debug(f"✅ Translation validation: {translation_validation}")
@@ -171,8 +174,8 @@ class Translator(weave.Object):
         }
 
     @weave.op
-    async def validate_translation(self, md_page: MDPage, translated_page: MDPage):
-        """Validate the translation"""
+    async def evaluate_translation(self, md_page: MDPage, translated_page: MDPage):
+        """Evaluate the translation"""
         messages = self.prompt_template.format(md_chunk=md_page.content)
         messages.append({"role": "assistant", "content": f"{translated_page.content}"})
         messages.append({"role": "user", "content": self.validation_prompt})
@@ -194,7 +197,7 @@ async def _translate_file(
     language: str = "es",  # Language to translate to
     config_folder: str = "./configs",  # Config folder
     remove_comments: bool = REMOVE_COMMENTS,  # Remove comments
-    validate: bool = True,  # Validate the translated file
+    do_evaluation: bool = True,  # Evaluate the translated file
 ) -> MDPage:
     """Translate a markdown file asynchronously"""
     if file_is_empty(input_file):
@@ -210,7 +213,7 @@ async def _translate_file(
         out_file.parent.mkdir(parents=True, exist_ok=True)
         try:
             translator = Translator(
-                config_folder=config_folder, language=language, validate=validate
+                config_folder=config_folder, language=language, do_evaluation=do_evaluation
             )
             async with semaphore:
                 translation_results = await translator.translate_file(
@@ -224,8 +227,7 @@ async def _translate_file(
                 )
                 return translation_results
         except Exception as e:
-            raise e
-            logging.error(f"Error translating {input_file}: {e}")
+            logging.error(f"❌ Error translating {input_file}: {e}")
 
 
 @weave.op
@@ -237,8 +239,10 @@ async def _translate_files(
     language: str = "es",  # Language to translate to
     config_folder: str = "./configs",  # Config folder
     remove_comments: bool = REMOVE_COMMENTS,  # Remove comments
+    do_evaluation: bool = True,  # Evaluate the translated file
 ):
     input_files = [Path(f) for f in input_files if Path(f).suffix == ".md"]
+    input_files.sort()
     logging.info(
         f"Translating {len(input_files)} files\n"
         f"Max concurrent calls to OpenAI: {MAX_OPENAI_CONCURRENT_CALLS}\n"
@@ -259,12 +263,13 @@ async def _translate_files(
         out_file = out_folder / md_file.relative_to(input_folder)
         tasks.append(
             _translate_file(
-                str(md_file),
-                str(out_file),
-                replace,
-                language,
-                config_folder,
-                remove_comments,
+                input_file=str(md_file),
+                out_file=str(out_file),
+                replace=replace,
+                language=language,
+                config_folder=config_folder,
+                remove_comments=remove_comments,
+                do_evaluation=do_evaluation,
             )
         )
     
@@ -282,16 +287,18 @@ def translate_file(
     remove_comments: Param("Remove comments", store_false) = REMOVE_COMMENTS,
     debug: Param("Debug mode", store_true) = DEBUG,
     weave_project: Param("Weave project", str) = None,
+    do_evaluation: Param("Do evaluation", store_true) = False,
 ):
     setup_logging(debug, weave_project=weave_project)
     asyncio.run(
         _translate_file(
-            input_file,
-            out_file,
-            replace,
-            language,
-            config_folder,
-            remove_comments,
+            input_file=input_file,
+            out_file=out_file,
+            replace=replace,
+            language=language,
+            config_folder=config_folder,
+            remove_comments=remove_comments,
+            do_evaluation=do_evaluation,
         )
     )
 
@@ -307,17 +314,19 @@ def translate_files(
     remove_comments: Param("Remove comments", store_false) = REMOVE_COMMENTS,
     debug: Param("Debug mode", store_true) = DEBUG,
     weave_project: Param("Weave project", str) = None,
+    do_evaluation: Param("Do evaluation", store_true) = False,
 ):
     setup_logging(debug, weave_project=weave_project)
     asyncio.run(
         _translate_files(
-            input_files,
-            input_folder,
-            out_folder,
-            replace,
-            language,
-            config_folder,
-            remove_comments,
+            input_files=input_files,
+            input_folder=input_folder,
+            out_folder=out_folder,
+            replace=replace,
+            language=language,
+            config_folder=config_folder,
+            remove_comments=remove_comments,
+            do_evaluation=do_evaluation,
         )
     )
 
@@ -333,18 +342,20 @@ def translate_folder(
     limit: Param("Limit number of files to translate", int) = None,
     debug: Param("Debug mode", store_true) = DEBUG,
     weave_project: Param("Weave project", str) = None,
+    do_evaluation: Param("Do evaluation", store_true) = False,
 ):
     """Translate all markdown files in a folder respecting the folder hierarchy"""
     setup_logging(debug, weave_project=weave_project)
     input_files = get_md_files(input_folder)[:limit]
     asyncio.run(
         _translate_files(
-            input_files,
-            input_folder,
-            out_folder,
-            replace,
-            language,
-            config_folder,
-            remove_comments,
+            input_files=input_files,
+            input_folder=input_folder,
+            out_folder=out_folder,
+            replace=replace,
+            language=language,
+            config_folder=config_folder,
+            remove_comments=remove_comments,
+            do_evaluation=do_evaluation,
         )
     )
