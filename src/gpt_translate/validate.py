@@ -14,8 +14,8 @@ def validate_links(original_page: MDPage, translated_page: MDPage):
     extra_links = [link for link in translated_links if link not in original_links]
     return {
         "links_match": len(missing_links) == 0 and len(extra_links) == 0,
-        "missing_links": missing_links,
-        "extra_links": extra_links,
+        "missing_links": [l.target for l in missing_links],
+        "extra_links": [l.target for l in extra_links],
         "total_links": len(original_links),
     }
 

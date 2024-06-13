@@ -133,10 +133,23 @@ def extract_header(content: str) -> dict:
         header += line + "\n"
     return {"header": header, "content": content[len(header) :]}
 
+@weave.op
+def find_links(raw_content: str, filename: str) -> list[MDLink]:
+    """
+    Finds all Markdown links in the content.
+    :return: list of tuples, each containing (link text, URL).
+    """
+    link_pattern = r"\[([^\]]+)\]\(([^)]+)\)"
+    links = []
+    for i, line in enumerate(raw_content.split("\n")):
+        matches = re.findall(link_pattern, line)
+        for title, target in matches:
+            links.append(MDLink(title, target, filename, i + 1))
+    return links
 
 class MDPage(weave.Object):
-    filename: str = "file.md"
-    raw_content: str = "Content"
+    filename: str
+    raw_content: str
     header: Header = Field(default=None)
     links: list[MDLink] = Field(default=None)
     content: str = Field(init=False)
@@ -153,7 +166,7 @@ class MDPage(weave.Object):
 
     @model_validator(mode="after")
     def set_links(self):
-        self.links = self.find_links(self.raw_content)
+        self.links = find_links(self.raw_content, self.filename)
         return self
 
     @weave.op
@@ -166,20 +179,6 @@ class MDPage(weave.Object):
         if fix_links:
             translated_page.update_links(self.links)
         return translated_page
-
-    @weave.op
-    def find_links(self, raw_content: str) -> list[MDLink]:
-        """
-        Finds all Markdown links in the content.
-        :return: list of tuples, each containing (link text, URL).
-        """
-        link_pattern = r"\[([^\]]+)\]\(([^)]+)\)"
-        links = []
-        for i, line in enumerate(raw_content.split("\n")):
-            matches = re.findall(link_pattern, line)
-            for title, target in matches:
-                links.append(MDLink(title, target, self.filename, i + 1))
-        return links
 
     @weave.op
     def update_links(self, new_links: list[MDLink], targets_only=True) -> None:
