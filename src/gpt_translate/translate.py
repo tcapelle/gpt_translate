@@ -5,6 +5,7 @@ from rich.logging import RichHandler
 from pathlib import Path
 import aiohttp
 import asyncio
+from tqdm.asyncio import tqdm
 from openai import AsyncOpenAI
 from tenacity import (
     retry,
@@ -57,7 +58,7 @@ async def completion_with_backoff(**kwargs):
 
 
 @weave.op
-async def translate_page(md_content: str, prompt: PromptTemplate, **model_args):
+async def translate_content(md_content: str, prompt: PromptTemplate, **model_args):
     """Translate a markdown chunk asynchronously
     md_content: markdown content
     prompt: PromptTemplate object
@@ -80,6 +81,7 @@ class Translator(weave.Object):
     config_folder: Path
     language: str = "ja"
     validate: bool = True
+    validation_prompt: str = Field(default=None)
     prompt_template: PromptTemplate = Field(default=None)
     model_args: dict = Field(default=None)
 
@@ -92,6 +94,10 @@ class Translator(weave.Object):
             config_folder / "human_prompt.txt",
             config_folder / f"language_dicts/{language}.yaml",
         )
+        if (config_folder / "validation_prompt.txt").exists():
+            validation_prompt = (config_folder / "validation_prompt.txt").read_text()
+        else:
+            validation_prompt = None
         with open(config_folder / "model_config.yaml", "r") as file:
             model_args = yaml.safe_load(file)
             logging.debug(f"Model args: {model_args}")
@@ -100,6 +106,7 @@ class Translator(weave.Object):
             {
                 "config_folder": config_folder,
                 "prompt_template": prompt_template,
+                "validation_prompt": validation_prompt,
                 "model_args": model_args,
             }
         )
@@ -118,51 +125,59 @@ class Translator(weave.Object):
             f"[bold red blink]Calling OpenAI [/bold red blink]with {self.model_args}\nFile: {md_file}\nContent: {md_content[:100]}...",
             extra={"markup": True},
         )
-        translated_content = await translate_page(
-            md_page.content,
-            self.prompt_template,
-            **self.model_args,
-        )
-        translated_page = md_page.from_translated(translated_content, fix_links=False)
-        # translate header description
+        translated_page = await self.translate_page(md_page)
+
         if md_page.header.description:
             logging.debug(
                 f"Translating header description: {md_page.header.description}"
             )
-            translated_page.header.description = await translate_page(
-                md_page.header.description, self.prompt_template, **self.model_args
-            )
+            translated_page.header.description = await self.translate_header_description(md_page)
+            
         if self.validate:
-            links_validation = validate_links(md_page, translated_page)
-            headers_validation = validate_headers(md_page, translated_page)
-            logging.debug(f"✅ Links validation: {links_validation}")
-            logging.debug(f"✅ Headers validation: {headers_validation}")
-            translation_validation = await self.validate_translation(
-                md_page, translated_page
-            )
-            logging.debug(f"✅ Translation validation: {translation_validation}")
-            return {
-                "translated_page": translated_page,
-                "links_validation": links_validation,
-                "headers_validation": headers_validation,
-                "translation_validation": translation_validation,
-            }
+            validation_results = await self.validation(md_page, translated_page)
+            return {"translated_page": translated_page, "validation_results": validation_results}
         return {"translated_page": translated_page}
+    
+    @weave.op
+    async def translate_page(self, md_page: MDPage):
+        """Translate a markdown page asynchronously"""
+        translated_content = await translate_content(
+            md_page.content,
+            self.prompt_template,
+            **self.model_args,
+        )
+        return md_page.from_translated(translated_content, fix_links=False)
+
+    @weave.op
+    async def translate_header_description(self, md_page: MDPage):
+        """Translate the header description"""
+        return await translate_content(
+            md_page.header.description, self.prompt_template, **self.model_args
+        )
+
+    @weave.op
+    async def validation(self, md_page: MDPage, translated_page: MDPage):
+        """Validate the translation"""
+        links_validation = validate_links(md_page, translated_page)
+        headers_validation = validate_headers(md_page, translated_page)
+        logging.debug(f"✅ Links validation: {links_validation}")
+        logging.debug(f"✅ Headers validation: {headers_validation}")
+        translation_validation = await self.validate_translation(
+            md_page, translated_page
+        )
+        logging.debug(f"✅ Translation validation: {translation_validation}")
+        return {
+            "links_validation": links_validation,
+            "headers_validation": headers_validation,
+            "translation_validation": translation_validation,
+        }
 
     @weave.op
     async def validate_translation(self, md_page: MDPage, translated_page: MDPage):
         """Validate the translation"""
         messages = self.prompt_template.format(md_chunk=md_page.content)
         messages.append({"role": "assistant", "content": f"{translated_page.content}"})
-        validation_message = """How good is the translation regarding the instructions you were given? Provide a detailed analysis.
-        Return a json object with the following keys:
-        - analysis: a detailed analysis of the translation
-        - translation_rating: a rating from 1 to 10 indicating the quality of the translation
-        - product_words: A boolean indicating if the translation respects not translating product words
-        - code_comments: A boolean indicating if the code comments are translated correctly
-        - links: A boolean indicating if the links are translated correctly
-        """
-        messages.append({"role": "user", "content": validation_message})
+        messages.append({"role": "user", "content": self.validation_prompt})
         res = await completion_with_backoff(
             messages=messages,
             **self.model_args,
@@ -241,6 +256,7 @@ async def _translate_files(
         raise ValueError(f"{input_folder} is not a folder")
 
     tasks = []
+
     for md_file in input_files:
         out_file = out_folder / md_file.relative_to(input_folder)
         tasks.append(
@@ -253,7 +269,8 @@ async def _translate_files(
                 remove_comments,
             )
         )
-    await asyncio.gather(*tasks)
+    
+    await tqdm.gather(*tasks, desc="Translating files")
 
 
 @call_parse
