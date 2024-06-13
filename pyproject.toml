@@ -35,6 +35,6 @@ dependencies = [
 homepage = "https://github.com/tcapelle/gpt_translate"
 
 [project.scripts]
-"gpt_translate.file" = "gpt_translate.translate:translate_file"
-"gpt_translate.files" = "gpt_translate.translate:translate_files"
-"gpt_translate.folder" = "gpt_translate.translate:translate_folder"
+"gpt_translate.file" = "gpt_translate.cli:translate_file"
+"gpt_translate.files" = "gpt_translate.cli:translate_files"
+"gpt_translate.folder" = "gpt_translate.cli:translate_folder"
