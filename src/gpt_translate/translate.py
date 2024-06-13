@@ -1,56 +1,33 @@
 import yaml
 import json
 import logging
-from rich.logging import RichHandler
-from pathlib import Path
-import aiohttp
 import asyncio
-from tqdm.asyncio import tqdm
+from typing import Optional
+from pathlib import Path
 from openai import AsyncOpenAI
+from tqdm.asyncio import tqdm
 from tenacity import (
     retry,
     stop_after_attempt,
     wait_random_exponential,  # for exponential backoff
 )
-from fastcore.script import call_parse, Param, store_true, store_false
 
 import weave
 from pydantic import model_validator, Field
 
 from gpt_translate.prompts import PromptTemplate
-from gpt_translate.loader import remove_markdown_comments, split_markdown, MDPage
-from gpt_translate.utils import count_tokens, get_md_files, file_is_empty
+from gpt_translate.loader import remove_markdown_comments, MDPage
+from gpt_translate.utils import file_is_empty
 from gpt_translate.validate import validate_links, validate_headers
-
-
-def setup_logging(debug=False, silence_openai=True, weave_project=None):
-    """Setup logging"""
-    # Initialize weave
-    if weave_project:
-        weave.init(weave_project)
-    
-    # Setup rich logger
-    level = "DEBUG" if debug else "INFO"
-    logging.basicConfig(
-        level=level, format="%(message)s", datefmt="[%X]", handlers=[RichHandler()]
-    )
-
-    # silence openai logger
-    if silence_openai:
-        logging.getLogger("httpcore").setLevel(logging.WARNING)
-        logging.getLogger("openai").setLevel(logging.WARNING)
-        logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
 # Use the OpenAI API in async mode
 client = AsyncOpenAI()
 
-## Global
+## Globals
 REPLACE = False
 REMOVE_COMMENTS = True
 MAX_OPENAI_CONCURRENT_CALLS = 7  # Adjust the limit as needed
-DEBUG = False
-semaphore = asyncio.Semaphore(MAX_OPENAI_CONCURRENT_CALLS)
 
 
 @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
@@ -78,13 +55,12 @@ async def translate_content(md_content: str, prompt: PromptTemplate, **model_arg
 
 class Translator(weave.Object):
     "A class to translate markdown files asynchronously"
-
     config_folder: Path
     language: str = "ja"
     do_evaluation: bool = True
-    evaluation_prompt: str = Field(default=None)
+    model_args: dict = dict(model="gpt-4o", temperature=1.0)
+    evaluation_prompt: Optional[str] = Field(default=None)
     prompt_template: PromptTemplate = Field(default=None)
-    model_args: dict = Field(default=None)
 
     @model_validator(mode="before")
     def initialize_fields(cls, values):
@@ -99,16 +75,12 @@ class Translator(weave.Object):
             evaluation_prompt = (config_folder / "evaluation_prompt.txt").read_text()
         else:
             evaluation_prompt = None
-        with open(config_folder / "model_config.yaml", "r") as file:
-            model_args = yaml.safe_load(file)
-            logging.debug(f"Model args: {model_args}")
 
         values.update(
             {
                 "config_folder": config_folder,
                 "prompt_template": prompt_template,
                 "evaluation_prompt": evaluation_prompt,
-                "model_args": model_args,
             }
         )
         return values
@@ -178,7 +150,7 @@ class Translator(weave.Object):
         """Evaluate the translation"""
         messages = self.prompt_template.format(md_chunk=md_page.content)
         messages.append({"role": "assistant", "content": f"{translated_page.content}"})
-        messages.append({"role": "user", "content": self.validation_prompt})
+        messages.append({"role": "user", "content": self.evaluation_prompt})
         res = await completion_with_backoff(
             messages=messages,
             **self.model_args,
@@ -198,10 +170,14 @@ async def _translate_file(
     config_folder: str = "./configs",  # Config folder
     remove_comments: bool = REMOVE_COMMENTS,  # Remove comments
     do_evaluation: bool = True,  # Evaluate the translated file
+    model_args: dict = dict(model="gpt-4o", temperature=1.0), # model args
+    max_openai_concurrent_calls: int = MAX_OPENAI_CONCURRENT_CALLS,  # Maximum number of concurrent calls to OpenAI
 ) -> MDPage:
     """Translate a markdown file asynchronously"""
     if file_is_empty(input_file):
         raise ValueError(f"File {input_file} is empty")
+
+    semaphore = asyncio.Semaphore(max_openai_concurrent_calls)
 
     # check it is a md file
     if Path(input_file).suffix != ".md":
@@ -213,7 +189,7 @@ async def _translate_file(
         out_file.parent.mkdir(parents=True, exist_ok=True)
         try:
             translator = Translator(
-                config_folder=config_folder, language=language, do_evaluation=do_evaluation
+                config_folder=config_folder, language=language, do_evaluation=do_evaluation, model_args=model_args
             )
             async with semaphore:
                 translation_results = await translator.translate_file(
@@ -228,6 +204,7 @@ async def _translate_file(
                 return translation_results
         except Exception as e:
             logging.error(f"❌ Error translating {input_file}: {e}")
+            raise e
 
 
 @weave.op
@@ -240,18 +217,11 @@ async def _translate_files(
     config_folder: str = "./configs",  # Config folder
     remove_comments: bool = REMOVE_COMMENTS,  # Remove comments
     do_evaluation: bool = True,  # Evaluate the translated file
+    model_args: dict = dict(model="gpt-4o", temperature=1.0), # model args
+    max_openai_concurrent_calls: int = MAX_OPENAI_CONCURRENT_CALLS,  # Maximum number of concurrent calls to OpenAI
 ):
     input_files = [Path(f) for f in input_files if Path(f).suffix == ".md"]
     input_files.sort()
-    logging.info(
-        f"Translating {len(input_files)} files\n"
-        f"Max concurrent calls to OpenAI: {MAX_OPENAI_CONCURRENT_CALLS}\n"
-        f"Removing comments: {remove_comments}\n"
-        f"Replace existing files: {replace}\n"
-        f"Language: {language}\n"
-        f"Config folder: {config_folder}\n"
-        f"Output folder: {out_folder}"
-    )
     input_folder = Path(input_folder)
     out_folder = Path(out_folder)
     if not input_folder.is_dir():
@@ -270,92 +240,10 @@ async def _translate_files(
                 config_folder=config_folder,
                 remove_comments=remove_comments,
                 do_evaluation=do_evaluation,
+                model_args=model_args,
+                max_openai_concurrent_calls=max_openai_concurrent_calls,
             )
         )
     
     await tqdm.gather(*tasks, desc="Translating files")
 
-
-# this function can be called using gpt_translate.file
-@call_parse
-def translate_file(
-    input_file: Param("File to translate", str),
-    out_file: Param("File to save the translated file to", str),
-    replace: Param("Replace existing file", store_true) = REPLACE,
-    language: Param("Language to translate to", str) = "es",
-    config_folder: Param("Config folder", str) = "./configs",
-    remove_comments: Param("Remove comments", store_false) = REMOVE_COMMENTS,
-    debug: Param("Debug mode", store_true) = DEBUG,
-    weave_project: Param("Weave project", str) = None,
-    do_evaluation: Param("Do evaluation", store_true) = False,
-):
-    setup_logging(debug, weave_project=weave_project)
-    asyncio.run(
-        _translate_file(
-            input_file=input_file,
-            out_file=out_file,
-            replace=replace,
-            language=language,
-            config_folder=config_folder,
-            remove_comments=remove_comments,
-            do_evaluation=do_evaluation,
-        )
-    )
-
-# this function can be called using gpt_translate.files
-@call_parse
-def translate_files(
-    input_files: Param("Files to translate", nargs="+"),
-    input_folder: Param("Folder to translate", str) = "docs/",
-    out_folder: Param("Folder to save the translated files to", str) = "translated/",
-    replace: Param("Replace existing file", store_true) = REPLACE,
-    language: Param("Language to translate to", str) = "es",
-    config_folder: Param("Config folder", str) = "./configs",
-    remove_comments: Param("Remove comments", store_false) = REMOVE_COMMENTS,
-    debug: Param("Debug mode", store_true) = DEBUG,
-    weave_project: Param("Weave project", str) = None,
-    do_evaluation: Param("Do evaluation", store_true) = False,
-):
-    setup_logging(debug, weave_project=weave_project)
-    asyncio.run(
-        _translate_files(
-            input_files=input_files,
-            input_folder=input_folder,
-            out_folder=out_folder,
-            replace=replace,
-            language=language,
-            config_folder=config_folder,
-            remove_comments=remove_comments,
-            do_evaluation=do_evaluation,
-        )
-    )
-
-# this function can be called using gpt_translate.folder
-@call_parse
-def translate_folder(
-    input_folder: Param("Folder to translate", str),
-    out_folder: Param("Folder to save the translated files to", str) = "translated/",
-    replace: Param("Replace existing files", store_true) = REPLACE,
-    language: Param("Language to translate to", str) = "es",
-    config_folder: Param("Config folder", str) = "./configs",
-    remove_comments: Param("Remove comments", store_false) = REMOVE_COMMENTS,
-    limit: Param("Limit number of files to translate", int) = None,
-    debug: Param("Debug mode", store_true) = DEBUG,
-    weave_project: Param("Weave project", str) = None,
-    do_evaluation: Param("Do evaluation", store_true) = False,
-):
-    """Translate all markdown files in a folder respecting the folder hierarchy"""
-    setup_logging(debug, weave_project=weave_project)
-    input_files = get_md_files(input_folder)[:limit]
-    asyncio.run(
-        _translate_files(
-            input_files=input_files,
-            input_folder=input_folder,
-            out_folder=out_folder,
-            replace=replace,
-            language=language,
-            config_folder=config_folder,
-            remove_comments=remove_comments,
-            do_evaluation=do_evaluation,
-        )
-    )
