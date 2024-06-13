@@ -115,21 +115,16 @@ class Header(weave.Object):
         # Convert the Pydantic model fields to a dictionary, then to a YAML-formatted string
         # Exclude the 'imports' field for the YAML content
         attrs = {k: v for k, v in self.model_dump().items() if v and k != "imports"}
-        if not attrs:
-            yaml_content = ""
-        else:
+        header = ""
+        if attrs:
             yaml_content = yaml.safe_dump(attrs, sort_keys=False, allow_unicode=True)
-            yaml_content = f"---\n{yaml_content}---"
-        # Include the imports at the beginning if any
-        if self.imports and yaml_content:
-            sep = "\n\n"
-        else:
-            sep = ""
-        import_content = f"{self.imports}" if self.imports else ""
-        return f"{yaml_content}{sep}{import_content}".encode("utf-8").decode(
-            "utf-8"
-        )
-
+            header = f"---\n{yaml_content}---"
+        
+        sep = "\n\n" if self.imports and header else ""
+        import_content = self.imports if self.imports else ""
+        
+        header += f"{sep}{import_content}"
+        return header.encode("utf-8").decode("utf-8")
 
 @weave.op
 def extract_header(content: str) -> dict:
@@ -166,13 +161,15 @@ class MDPage(weave.Object):
     @model_validator(mode="before")
     def initialize_fields(cls, values):
         raw_content = values.get("raw_content", "")
-        extracted = extract_header(raw_content)
-        header = extracted["header"]
-        content = extracted["content"]
-        values["header"] = Header.from_string(header)
-        values["content"] = content
+        if "header" not in values or values["header"] is None:
+            extracted = extract_header(raw_content)
+            header = extracted["header"]
+            content = extracted["content"]
+            values["header"] = Header.from_string(header)
+            values["content"] = content
+        else:
+            values["content"] = raw_content[len(str(values["header"])):]
         return values
-
     @model_validator(mode="after")
     def set_links(self):
         self.links = find_links(self.raw_content, self.filename)
@@ -211,4 +208,6 @@ class MDPage(weave.Object):
 
     def __str__(self):
         "Concatenate header and content"
-        return f"{self.header}\n\n{self.content}"
+        if str(self.header).strip():
+            return f"{self.header}\n\n{self.content}"
+        return str(self.content)

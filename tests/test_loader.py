@@ -109,3 +109,17 @@ import 3;
     assert header_obj.slug == "/guides/app"
     assert header_obj.imports == "import 1;\nimport 2;\nimport 3;"
     assert str(header_obj) == header
+
+    # test empty header
+    page = """
+# title
+"""
+    header = ""
+    extracted_header = extract_header(page)["header"]
+    assert extracted_header == header
+    header_obj = Header.from_string(extracted_header)
+    assert header_obj.description == ""
+    assert header_obj.displayed_sidebar == ""
+    assert header_obj.slug == ""
+    assert header_obj.imports == ""
+    assert str(header_obj) == header
