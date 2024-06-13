@@ -23,7 +23,7 @@ from gpt_translate.utils import count_tokens, get_md_files, file_is_empty
 from gpt_translate.validate import validate_links, validate_headers
 
 
-def setup_logging(debug=False, silence_openai=True):
+def setup_logging(debug=False, silence_openai=True, weave_project=None):
     """Setup logging"""
     # Setup rich logger
     level = "DEBUG" if debug else "INFO"
@@ -36,7 +36,8 @@ def setup_logging(debug=False, silence_openai=True):
         logging.getLogger("httpcore").setLevel(logging.WARNING)
         logging.getLogger("openai").setLevel(logging.WARNING)
         logging.getLogger("httpx").setLevel(logging.WARNING)
-
+    if weave_project:
+        weave.init(weave_project)
 
 # Use the OpenAI API in async mode
 client = AsyncOpenAI()
@@ -46,10 +47,7 @@ REPLACE = False
 REMOVE_COMMENTS = True
 MAX_OPENAI_CONCURRENT_CALLS = 7  # Adjust the limit as needed
 DEBUG = False
-PROJECT = "gpt-translate"
 semaphore = asyncio.Semaphore(MAX_OPENAI_CONCURRENT_CALLS)
-
-weave.init(PROJECT)
 
 
 @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
@@ -273,6 +271,7 @@ async def _translate_files(
     await tqdm.gather(*tasks, desc="Translating files")
 
 
+# this function can be called using gpt_translate.file
 @call_parse
 def translate_file(
     input_file: Param("File to translate", str),
@@ -282,8 +281,9 @@ def translate_file(
     config_folder: Param("Config folder", str) = "./configs",
     remove_comments: Param("Remove comments", store_false) = REMOVE_COMMENTS,
     debug: Param("Debug mode", store_true) = DEBUG,
+    weave_project: Param("Weave project", str) = None,
 ):
-    setup_logging(debug)
+    setup_logging(debug, weave_project=weave_project)
     asyncio.run(
         _translate_file(
             input_file,
@@ -295,7 +295,7 @@ def translate_file(
         )
     )
 
-
+# this function can be called using gpt_translate.files
 @call_parse
 def translate_files(
     input_files: Param("Files to translate", nargs="+"),
@@ -306,8 +306,9 @@ def translate_files(
     config_folder: Param("Config folder", str) = "./configs",
     remove_comments: Param("Remove comments", store_false) = REMOVE_COMMENTS,
     debug: Param("Debug mode", store_true) = DEBUG,
+    weave_project: Param("Weave project", str) = None,
 ):
-    setup_logging(debug)
+    setup_logging(debug, weave_project=weave_project)
     asyncio.run(
         _translate_files(
             input_files,
@@ -320,7 +321,7 @@ def translate_files(
         )
     )
 
-
+# this function can be called using gpt_translate.folder
 @call_parse
 def translate_folder(
     input_folder: Param("Folder to translate", str),
@@ -331,9 +332,10 @@ def translate_folder(
     remove_comments: Param("Remove comments", store_false) = REMOVE_COMMENTS,
     limit: Param("Limit number of files to translate", int) = None,
     debug: Param("Debug mode", store_true) = DEBUG,
+    weave_project: Param("Weave project", str) = None,
 ):
     """Translate all markdown files in a folder respecting the folder hierarchy"""
-    setup_logging(debug)
+    setup_logging(debug, weave_project=weave_project)
     input_files = get_md_files(input_folder)[:limit]
     asyncio.run(
         _translate_files(
