@@ -158,7 +158,7 @@ class Translator(weave.Object):
                 f"Translating header description: {md_page.header.description}"
             )
             translated_description = await self.translate_header_description(md_page)
-            translated_page.header.description = translated_description  #updating the Weave object
+            translated_page.header.description = translated_description.content  #updating the Weave object
 
         if self.evaluate:
             evaluation_results = await self.evaluate(md_page, translated_page)
@@ -283,7 +283,7 @@ async def _translate_files(
         logging.info(f"Reading {input_files}")
         input_files = Path(input_files).read_text().splitlines()
     input_files = [Path(f) for f in input_files if Path(f).suffix == ".md"]
-    logging.info(f"Translating {len(input_files)} files")
+    logging.info(f"Translating {len(input_files)} file" + ("s" if len(input_files) > 1 else ""))
     input_files.sort()
     input_folder = Path(input_folder)
     out_folder = Path(out_folder)
@@ -310,3 +310,19 @@ async def _translate_files(
     tasks = [_translate_with_semaphore(md_file) for md_file in input_files]
 
     await tqdm.gather(*tasks, desc="Translating files")
+
+
+if __name__ == "__main__":
+    from gpt_translate.cli import setup_logging
+    setup_logging(debug=True, silence_openai=True, weave_project="gpt-translate")
+    asyncio.run( _translate_files(
+        input_files="long.txt",
+        input_folder="../docodile/docs_main/",
+        out_folder= "../docodile/docs/",
+        replace=True,
+        language="ja",
+        config_folder="./configs_dev",
+        do_evaluation=True,
+        max_chunk_tokens=2000,
+    ))
+

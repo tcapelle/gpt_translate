@@ -74,6 +74,12 @@ def extract_markdown_links(filename, content):
             links.append(MDLink(title, target, filename, i + 1))
     return links
 
+def represent_str(dumper, data):
+    # Replace newlines with spaces and trim leading/trailing whitespace
+    one_liner = re.sub(r'\n+', ' ', data).strip()
+    return dumper.represent_scalar('tag:yaml.org,2002:str', one_liner)
+
+yaml.add_representer(str, represent_str)
 
 class Header(weave.Object):
     title: str = ""
@@ -115,11 +121,11 @@ class Header(weave.Object):
         parts = []
         attrs = {k: v for k, v in self.model_dump().items() if v and k != "imports"}
         if attrs:
-            yaml_content = yaml.safe_dump(attrs, sort_keys=False, allow_unicode=True)
+            yaml_content = yaml.dump(attrs, sort_keys=False, allow_unicode=True, default_flow_style=False)
             parts.append(f"---\n{yaml_content.strip()}\n---")
         if self.imports:
             parts.append(self.imports)
-        return "\n".join(parts)
+        return "\n".join(parts).encode("utf-8").decode("utf-8")
 
 
 @weave.op
@@ -243,3 +249,5 @@ class MDPage(weave.Object):
         if str(self.header).strip():
             return f"{self.header}\n\n{self.content}"
         return str(self.content)
+
+

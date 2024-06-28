@@ -144,3 +144,37 @@ You can run W&B Server on your on-premises infrastructure if Multi-tenant Cloud 
     assert header_obj.imports == "import Tabs from '@theme/Tabs';\nimport TabItem from '@theme/TabItem';"
     assert str(header_obj) == header
     assert extracted["content"] == content
+
+def test_header_serialization_with_japanese_characters():
+    header_obj = Header(
+        title="オンプレミス インフラストラクチャー",
+        description="オンプレミス インフラストラクチャー上での W&B サーバーのホスティング",
+        displayed_sidebar="default",
+        imports=""
+    )
+    expected_header = """
+---
+description: オンプレミス インフラストラクチャー上での W&B サーバーのホスティング
+title: オンプレミス インフラストラクチャー
+displayed_sidebar: default
+---
+"""
+    assert header_obj.description == "オンプレミス インフラストラクチャー上での W&B サーバーのホスティング"
+    assert str(header_obj) == expected_header.strip()
+
+def test_header_serialization_with_newlines_in_description():
+    header_obj = Header(
+        title="Sample Title",
+        description="This is a description\nwith multiple lines\nthat should be serialized correctly.\n",
+        displayed_sidebar="default",
+        imports=""
+    )
+    expected_header = """
+---
+description: This is a description with multiple lines that should be serialized correctly.
+title: Sample Title
+displayed_sidebar: default
+---
+"""
+    assert header_obj.description == "This is a description\nwith multiple lines\nthat should be serialized correctly.\n"
+    assert str(header_obj) == expected_header.strip()
