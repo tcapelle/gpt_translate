@@ -48,18 +48,16 @@ Content under header 1.1"""
     )
 
 
-def test_header():
-
-    # test simple header
-    page = """
----
+def test_simple_header():
+    header = """---
 description: description
 slug: /guides/app
 displayed_sidebar: default
----
+---"""
+    content = """
 # title
 """
-    header = """---\ndescription: description\nslug: /guides/app\ndisplayed_sidebar: default\n---"""
+    page = header + "\n" + content
     extracted_header = extract_header(page)["header"]
     assert extracted_header == header
     header_obj = Header.from_string(extracted_header)
@@ -68,15 +66,14 @@ displayed_sidebar: default
     assert header_obj.slug == "/guides/app"
     assert str(header_obj) == header
 
-    # test import
-    page = """
-import 1;
+def test_header_with_imports():
+    header = """import 1;
 import 2;
-import 3;
-
+import 3;"""
+    content = """
 # title
 """
-    header = """import 1;\nimport 2;\nimport 3;"""
+    page = header + "\n" + content
     extracted_header = extract_header(page)["header"]
     assert extracted_header == header
     header_obj = Header.from_string(extracted_header)
@@ -86,21 +83,19 @@ import 3;
     assert header_obj.imports == "import 1;\nimport 2;\nimport 3;"
     assert str(header_obj) == header
 
-    # test import + header
-    page = """
----
+def test_header_with_frontmatter_and_imports():
+    header = """---
 description: description
 slug: /guides/app
 displayed_sidebar: default
 ---
-
 import 1;
 import 2;
-import 3;
-
+import 3;"""
+    content = """
 # title
 """
-    header = """---\ndescription: description\nslug: /guides/app\ndisplayed_sidebar: default\n---\n\nimport 1;\nimport 2;\nimport 3;"""
+    page = header + "\n" + content
     extracted_header = extract_header(page)["header"]
     assert extracted_header == header
     header_obj = Header.from_string(extracted_header)
@@ -110,11 +105,12 @@ import 3;
     assert header_obj.imports == "import 1;\nimport 2;\nimport 3;"
     assert str(header_obj) == header
 
-    # test empty header
-    page = """
+def test_empty_header():
+    header = ""
+    content = """
 # title
 """
-    header = ""
+    page = header + "\n" + content
     extracted_header = extract_header(page)["header"]
     assert extracted_header == header
     header_obj = Header.from_string(extracted_header)
@@ -123,3 +119,28 @@ import 3;
     assert header_obj.slug == ""
     assert header_obj.imports == ""
     assert str(header_obj) == header
+
+def test_header_with_title():
+    header = """---
+description: Hosting W&B Server on on-premises infrastructure
+title: Install on on-prem infra
+displayed_sidebar: default
+---
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';"""
+    
+    content = """:::info
+W&B recommends fully managed deployment options such as [W&B Multi-tenant Cloud](../hosting-options/saas_cloud.md) or [W&B Dedicated Cloud](../hosting-options//dedicated_cloud.md) deployment types. W&B fully managed services are simple and secure to use, with minimum to no configuration required.
+:::
+
+You can run W&B Server on your on-premises infrastructure if Multi-tenant Cloud or Dedicated Cloud are not a good fit for your organization."""
+    page = header + "\n" + content
+    extracted = extract_header(page)
+    assert extracted["header"] == header
+    header_obj = Header.from_string(extracted["header"])
+    assert header_obj.title == "Install on on-prem infra"
+    assert header_obj.description == "Hosting W&B Server on on-premises infrastructure"
+    assert header_obj.displayed_sidebar == "default"
+    assert header_obj.imports == "import Tabs from '@theme/Tabs';\nimport TabItem from '@theme/TabItem';"
+    assert str(header_obj) == header
+    assert extracted["content"] == content

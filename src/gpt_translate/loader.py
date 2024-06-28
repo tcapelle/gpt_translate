@@ -112,31 +112,59 @@ class Header(weave.Object):
         return str(self)
 
     def __str__(self) -> str:
-        # Convert the Pydantic model fields to a dictionary, then to a YAML-formatted string
-        # Exclude the 'imports' field for the YAML content
+        parts = []
         attrs = {k: v for k, v in self.model_dump().items() if v and k != "imports"}
-        header = ""
         if attrs:
             yaml_content = yaml.safe_dump(attrs, sort_keys=False, allow_unicode=True)
-            header = f"---\n{yaml_content}---"
-
-        sep = "\n\n" if self.imports and header else ""
-        import_content = self.imports if self.imports else ""
-
-        header += f"{sep}{import_content}"
-        return header.encode("utf-8").decode("utf-8")
+            parts.append(f"---\n{yaml_content.strip()}\n---")
+        if self.imports:
+            parts.append(self.imports)
+        return "\n".join(parts)
 
 
 @weave.op
 def extract_header(content: str) -> dict:
-    "Extract header from a markdown file, everything before the title and the rest of the content"
-    header = ""
-    for line in content.split("\n"):
-        if line.startswith("# "):
+    "Extract header from a markdown file, including YAML frontmatter and imports"
+    lines = content.split("\n")
+    frontmatter = []
+    imports = []
+    content_lines = []
+    in_frontmatter = False
+
+    # Extract frontmatter
+    for line in lines:
+        if line.strip() == "---":
+            if not in_frontmatter:
+                in_frontmatter = True
+                frontmatter.append(line)
+            else:
+                frontmatter.append(line)
+                break
+        elif in_frontmatter:
+            frontmatter.append(line)
+        else:
             break
-        header += line + "\n"
-    header = header.rstrip("\n")
-    return {"header": header.strip(), "content": content[len(header) :]}
+
+    # Extract imports and content
+    remaining_lines = lines[len(frontmatter):]
+    for line in remaining_lines:
+        if line.strip().startswith("import "):
+            imports.append(line)
+        else:
+            content_lines = remaining_lines[len(imports):]
+            break
+
+    # Combine frontmatter and imports for header
+    header_lines = frontmatter + imports
+
+    # Remove trailing empty lines from header
+    while header_lines and not header_lines[-1].strip():
+        header_lines.pop()
+
+    header = "\n".join(header_lines).rstrip()
+    content = "\n".join(content_lines).strip()
+
+    return {"header": header, "content": content}
 
 
 @weave.op
