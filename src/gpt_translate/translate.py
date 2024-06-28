@@ -106,8 +106,8 @@ class Translator(weave.Object):
         packed_chunks = ""
         packed_chunks_len = 0
 
+        translated_chunks = []
         for i, chunk in enumerate(splitted_markdown):
-
             n_tokens = count_tokens(chunk)
 
             if packed_chunks_len + n_tokens <= self.max_chunk_tokens:
@@ -116,23 +116,19 @@ class Translator(weave.Object):
                 packed_chunks_len += n_tokens
             else:
                 logging.debug(f">> Translating {packed_chunks_len} tokens")
-                tasks.append(
-                    translate_content(
-                        packed_chunks, self.prompt_template, **self.model_args
-                    )
+                translated_chunk = await translate_content(
+                    packed_chunks, self.prompt_template, **self.model_args
                 )
+                translated_chunks.append(translated_chunk)
                 packed_chunks = chunk
                 packed_chunks_len = n_tokens
 
         if packed_chunks:
             logging.debug(f">> Translating {packed_chunks_len} tokens (last chunk)")
-            tasks.append(
-                translate_content(
-                    packed_chunks, self.prompt_template, **self.model_args
-                )
+            translated_chunk = await translate_content(
+                packed_chunks, self.prompt_template, **self.model_args
             )
-
-        translated_chunks = await asyncio.gather(*tasks)
+            translated_chunks.append(translated_chunk)
         return sep.join(translated_chunks)
 
     @weave.op
