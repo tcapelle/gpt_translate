@@ -139,6 +139,8 @@ class Translator(weave.Object):
         if remove_comments:
             logging.debug("Removing comments")
             md_content = remove_markdown_comments(md_content)
+        if len(md_content.strip()) < 20:
+            logging.warning(f"File may be empty: {md_file}")
         md_page = MDPage(filename=md_file, raw_content=md_content)
         logging.debug(
             f"[bold red blink]Calling OpenAI [/bold red blink]with {self.model_args}\nFile: {md_file}\nContent: {md_content[:100]}...",
