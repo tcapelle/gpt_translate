@@ -4,6 +4,7 @@ import logging
 import asyncio
 from typing import Optional
 from pathlib import Path
+from dataclasses import dataclass
 from openai import AsyncOpenAI
 from tqdm.asyncio import tqdm
 from tenacity import (
@@ -28,16 +29,20 @@ client = AsyncOpenAI()
 REPLACE = False
 REMOVE_COMMENTS = True
 MAX_OPENAI_CONCURRENT_CALLS = 7  # Adjust the limit as needed
-MAX_CHUNK_TOKENS = 3600
+MAX_CHUNK_TOKENS = 3000
 
 
 @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
 async def completion_with_backoff(**kwargs):
     return await client.chat.completions.create(**kwargs)
 
+@dataclass
+class TranslationResult:
+    content: str
+    tokens: int
 
 @weave.op
-async def translate_content(md_content: str, prompt: PromptTemplate, **model_args):
+async def translate_content(md_content: str, prompt: PromptTemplate, token_count: int=None, **model_args):
     """Translate a markdown chunk asynchronously
     md_content: markdown content
     prompt: PromptTemplate object
@@ -51,8 +56,7 @@ async def translate_content(md_content: str, prompt: PromptTemplate, **model_arg
         f"[blue]OpenAI response:\n{output[:100]}...[/blue]", extra={"markup": True}
     )
     logging.debug(res.usage)
-    return output
-
+    return TranslationResult(content=output, tokens=count_tokens(output))
 
 class Translator(weave.Object):
     "A class to translate markdown files asynchronously"
@@ -117,18 +121,19 @@ class Translator(weave.Object):
             else:
                 logging.debug(f">> Translating {packed_chunks_len} tokens")
                 translated_chunk = await translate_content(
-                    packed_chunks, self.prompt_template, **self.model_args
+                    packed_chunks, self.prompt_template, token_count=packed_chunks_len, **self.model_args
                 )
-                translated_chunks.append(translated_chunk)
+                translated_chunks.append(translated_chunk.content)
+                logging.debug(f">> Translated {translated_chunk.tokens} tokens")
                 packed_chunks = chunk
                 packed_chunks_len = n_tokens
 
         if packed_chunks:
             logging.debug(f">> Translating {packed_chunks_len} tokens (last chunk)")
             translated_chunk = await translate_content(
-                packed_chunks, self.prompt_template, **self.model_args
+                packed_chunks, self.prompt_template, token_count=packed_chunks_len, **self.model_args
             )
-            translated_chunks.append(translated_chunk)
+            translated_chunks.append(translated_chunk.content)
         return sep.join(translated_chunks)
 
     @weave.op
@@ -152,9 +157,10 @@ class Translator(weave.Object):
             logging.debug(
                 f"Translating header description: {md_page.header.description}"
             )
-            translated_page.header.description = (
+            translated_description = (
                 await self.translate_header_description(md_page)
             )
+            translated_page.header.description = translated_description.content
 
         if self.evaluate:
             evaluation_results = await self.evaluate(md_page, translated_page)
@@ -256,7 +262,7 @@ async def _translate_file(
             return translation_results
         except Exception as e:
             logging.error(f"❌ Error translating {input_file}: {e}")
-            # raise e
+            raise e
 
 
 @weave.op
