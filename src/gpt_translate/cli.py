@@ -11,8 +11,9 @@ import simple_parsing
 from dataclasses import dataclass, asdict
 
 from gpt_translate.translate import _translate_file, _translate_files
-from gpt_translate.utils import get_md_files
+from gpt_translate.utils import get_md_files, _copy_images
 from gpt_translate.configs import setup_parsing
+
 
 
 def setup_logging(debug=False, silence_openai=True, weave_project=None):
@@ -47,7 +48,6 @@ def translate_file(args=None):
             config_folder=translation_args.config_folder,
             remove_comments=translation_args.remove_comments,
             do_evaluation=translation_args.do_evaluation,
-            max_openai_concurrent_calls=translation_args.max_openai_concurrent_calls,
             model_args=asdict(model_args),
         )
     )
@@ -90,3 +90,13 @@ def translate_folder(args=None):
             model_args=asdict(model_args),
         )
     )
+
+@dataclass
+class CopyImagesArgs:
+    src_path: Path
+    dst_path: Path
+
+def copy_images(args=None):
+    args = simple_parsing.parse(CopyImagesArgs)
+    print(args)
+    _copy_images(args.src_path, args.dst_path)
