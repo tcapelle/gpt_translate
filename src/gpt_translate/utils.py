@@ -33,24 +33,25 @@ def get_md_files(path: Path | str, files_glob: str = "*.md", file_re: str = None
     files = globtastic(path, file_glob=files_glob, file_re=file_re)
     return [Path(f) for f in files.sorted()]
 
+
 def _copy_images(src_path: Path | str, dst_path: Path | str):
     "recursively copy images from src_path to dst_path"
     src_path = Path(src_path)
     dst_path = Path(dst_path)
-    
+
     # Define image file extensions
-    image_extensions = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg']
-    
-    for src_file in src_path.rglob('*'):
+    image_extensions = [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".svg"]
+
+    for src_file in src_path.rglob("*"):
         if src_file.suffix.lower() in image_extensions:
             # Compute relative path
             rel_path = src_file.relative_to(src_path)
             # Construct destination path
             dst_file = dst_path / rel_path
-            
+
             # Create parent directories if they don't exist
             dst_file.parent.mkdir(parents=True, exist_ok=True)
-            
+
             # Copy the file
             dst_file.write_bytes(src_file.read_bytes())
             logging.debug(f"Copied {src_file} to {dst_file}")

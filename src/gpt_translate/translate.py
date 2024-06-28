@@ -16,8 +16,8 @@ import weave
 from pydantic import model_validator, Field
 
 from gpt_translate.prompts import PromptTemplate
-from gpt_translate.loader import remove_markdown_comments, MDPage
-from gpt_translate.utils import file_is_empty
+from gpt_translate.loader import remove_markdown_comments, MDPage, split_markdown
+from gpt_translate.utils import file_is_empty, count_tokens
 from gpt_translate.validate import validate_links, validate_headers
 
 
@@ -28,6 +28,7 @@ client = AsyncOpenAI()
 REPLACE = False
 REMOVE_COMMENTS = True
 MAX_OPENAI_CONCURRENT_CALLS = 7  # Adjust the limit as needed
+MAX_CHUNK_TOKENS = 3600
 
 
 @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
@@ -59,6 +60,7 @@ class Translator(weave.Object):
     language: str = "ja"
     do_evaluation: bool = True
     model_args: dict = dict(model="gpt-4o", temperature=1.0)
+    max_chunk_tokens: int = MAX_CHUNK_TOKENS
     evaluation_prompt: Optional[str] = Field(default=None)
     prompt_template: PromptTemplate = Field(default=None)
 
@@ -86,6 +88,54 @@ class Translator(weave.Object):
         return values
 
     @weave.op
+    async def translate_splitted_md(
+        self,
+        splitted_markdown: list[str],
+        sep: str = "\n\n",
+    ) -> str:
+        """Translate a list of markdown chunks asynchronously
+        splitted_markdown: list of markdown chunks
+        prompt: PromptTemplate object
+        max_chunk_tokens: maximum number of tokens per chunk
+        sep: separator between chunks
+        model_args: arguments to pass to the completion_with_backoff function
+        return: translated markdown file
+        """
+
+        tasks = []
+        packed_chunks = ""
+        packed_chunks_len = 0
+
+        for i, chunk in enumerate(splitted_markdown):
+
+            n_tokens = count_tokens(chunk)
+
+            if packed_chunks_len + n_tokens <= self.max_chunk_tokens:
+                logging.debug(f"Packing chunk {i} with {n_tokens} tokens")
+                packed_chunks += sep + chunk
+                packed_chunks_len += n_tokens
+            else:
+                logging.debug(f">> Translating {packed_chunks_len} tokens")
+                tasks.append(
+                    translate_content(
+                        packed_chunks, self.prompt_template, **self.model_args
+                    )
+                )
+                packed_chunks = chunk
+                packed_chunks_len = n_tokens
+
+        if packed_chunks:
+            logging.debug(f">> Translating {packed_chunks_len} tokens (last chunk)")
+            tasks.append(
+                translate_content(
+                    packed_chunks, self.prompt_template, **self.model_args
+                )
+            )
+
+        translated_chunks = await asyncio.gather(*tasks)
+        return sep.join(translated_chunks)
+
+    @weave.op
     async def translate_file(self, md_file: str, remove_comments: bool = True):
         """Translate a markdown file asynchronously"""
         with open(md_file, "r") as f:
@@ -104,21 +154,24 @@ class Translator(weave.Object):
             logging.debug(
                 f"Translating header description: {md_page.header.description}"
             )
-            translated_page.header.description = await self.translate_header_description(md_page)
-            
+            translated_page.header.description = (
+                await self.translate_header_description(md_page)
+            )
+
         if self.evaluate:
             evaluation_results = await self.evaluate(md_page, translated_page)
-            return {"translated_page": translated_page, "evaluation_results": evaluation_results}
+            return {
+                "translated_page": translated_page,
+                "evaluation_results": evaluation_results,
+            }
         return {"translated_page": translated_page}
-    
+
     @weave.op
     async def translate_page(self, md_page: MDPage):
         """Translate a markdown page asynchronously"""
-        translated_content = await translate_content(
-            md_page.content,
-            self.prompt_template,
-            **self.model_args,
-        )
+        chunks = split_markdown(md_page.content)
+        translated_content = await self.translate_splitted_md(chunks)
+
         return md_page.from_translated(translated_content, fix_links=False)
 
     @weave.op
@@ -170,14 +223,12 @@ async def _translate_file(
     config_folder: str = "./configs",  # Config folder
     remove_comments: bool = REMOVE_COMMENTS,  # Remove comments
     do_evaluation: bool = True,  # Evaluate the translated file
-    model_args: dict = dict(model="gpt-4o", temperature=1.0), # model args
-    max_openai_concurrent_calls: int = MAX_OPENAI_CONCURRENT_CALLS,  # Maximum number of concurrent calls to OpenAI
+    model_args: dict = dict(model="gpt-4o", temperature=1.0),  # model args
+    max_chunk_tokens: int = MAX_CHUNK_TOKENS,  # max number of tokens in a chunk
 ) -> MDPage:
     """Translate a markdown file asynchronously"""
     if file_is_empty(input_file):
         raise ValueError(f"File {input_file} is empty")
-
-    semaphore = asyncio.Semaphore(max_openai_concurrent_calls)
 
     # check it is a md file
     if Path(input_file).suffix != ".md":
@@ -189,22 +240,25 @@ async def _translate_file(
         out_file.parent.mkdir(parents=True, exist_ok=True)
         try:
             translator = Translator(
-                config_folder=config_folder, language=language, do_evaluation=do_evaluation, model_args=model_args
+                config_folder=config_folder,
+                language=language,
+                do_evaluation=do_evaluation,
+                model_args=model_args,
+                max_chunk_tokens=max_chunk_tokens,
             )
-            async with semaphore:
-                translation_results = await translator.translate_file(
-                    input_file, remove_comments
-                )
-                with open(out_file, "w", encoding="utf-8") as f:
-                    f.write(str(translation_results["translated_page"]))
-                logging.info(
-                    f"✅ Translated file saved to [green]{out_file}[/green]",
-                    extra={"markup": True},
-                )
-                return translation_results
+            translation_results = await translator.translate_file(
+                input_file, remove_comments
+            )
+            with open(out_file, "w", encoding="utf-8") as f:
+                f.write(str(translation_results["translated_page"]))
+            logging.info(
+                f"✅ Translated file saved to [green]{out_file}[/green]",
+                extra={"markup": True},
+            )
+            return translation_results
         except Exception as e:
             logging.error(f"❌ Error translating {input_file}: {e}")
-            raise e
+            # raise e
 
 
 @weave.op
@@ -217,22 +271,28 @@ async def _translate_files(
     config_folder: str = "./configs",  # Config folder
     remove_comments: bool = REMOVE_COMMENTS,  # Remove comments
     do_evaluation: bool = True,  # Evaluate the translated file
-    model_args: dict = dict(model="gpt-4o", temperature=1.0), # model args
+    model_args: dict = dict(model="gpt-4o", temperature=1.0),  # model args
     max_openai_concurrent_calls: int = MAX_OPENAI_CONCURRENT_CALLS,  # Maximum number of concurrent calls to OpenAI
+    max_chunk_tokens: int = MAX_CHUNK_TOKENS,  # max number of tokens in a chunk
 ):
+    # let's make input_files support a txt file with a list of files
+    if Path(input_files).suffix == ".txt":
+        logging.info(f"Reading {input_files}")
+        input_files = Path(input_files).read_text().splitlines()
     input_files = [Path(f) for f in input_files if Path(f).suffix == ".md"]
+    logging.info(f"Translating {len(input_files)} files")
     input_files.sort()
     input_folder = Path(input_folder)
     out_folder = Path(out_folder)
     if not input_folder.is_dir():
         raise ValueError(f"{input_folder} is not a folder")
 
-    tasks = []
+    semaphore = asyncio.Semaphore(max_openai_concurrent_calls)
 
-    for md_file in input_files:
-        out_file = out_folder / md_file.relative_to(input_folder)
-        tasks.append(
-            _translate_file(
+    async def _translate_with_semaphore(md_file):
+        async with semaphore:
+            out_file = out_folder / md_file.relative_to(input_folder)
+            return await _translate_file(
                 input_file=str(md_file),
                 out_file=str(out_file),
                 replace=replace,
@@ -241,9 +301,9 @@ async def _translate_files(
                 remove_comments=remove_comments,
                 do_evaluation=do_evaluation,
                 model_args=model_args,
-                max_openai_concurrent_calls=max_openai_concurrent_calls,
+                max_chunk_tokens=max_chunk_tokens,
             )
-        )
-    
-    await tqdm.gather(*tasks, desc="Translating files")
 
+    tasks = [_translate_with_semaphore(md_file) for md_file in input_files]
+
+    await tqdm.gather(*tasks, desc="Translating files")

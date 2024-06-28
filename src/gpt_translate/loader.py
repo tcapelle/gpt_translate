@@ -119,12 +119,13 @@ class Header(weave.Object):
         if attrs:
             yaml_content = yaml.safe_dump(attrs, sort_keys=False, allow_unicode=True)
             header = f"---\n{yaml_content}---"
-        
+
         sep = "\n\n" if self.imports and header else ""
         import_content = self.imports if self.imports else ""
-        
+
         header += f"{sep}{import_content}"
         return header.encode("utf-8").decode("utf-8")
+
 
 @weave.op
 def extract_header(content: str) -> dict:
@@ -135,7 +136,8 @@ def extract_header(content: str) -> dict:
             break
         header += line + "\n"
     header = header.rstrip("\n")
-    return {"header": header.strip(), "content": content[len(header):]}
+    return {"header": header.strip(), "content": content[len(header) :]}
+
 
 @weave.op
 def find_links(raw_content: str, filename: str) -> list[MDLink]:
@@ -150,6 +152,7 @@ def find_links(raw_content: str, filename: str) -> list[MDLink]:
         for title, target in matches:
             links.append(MDLink(title, target, filename, i + 1))
     return links
+
 
 class MDPage(weave.Object):
     filename: str
@@ -168,8 +171,9 @@ class MDPage(weave.Object):
             values["header"] = Header.from_string(header)
             values["content"] = content
         else:
-            values["content"] = raw_content[len(str(values["header"])):]
+            values["content"] = raw_content[len(str(values["header"])) :]
         return values
+
     @model_validator(mode="after")
     def set_links(self):
         self.links = find_links(self.raw_content, self.filename)
