@@ -157,10 +157,8 @@ class Translator(weave.Object):
             logging.debug(
                 f"Translating header description: {md_page.header.description}"
             )
-            translated_description = (
-                await self.translate_header_description(md_page)
-            )
-            translated_page.header.description = translated_description.content
+            translated_description = await self.translate_header_description(md_page)
+            translated_page.header.description = translated_description  #updating the Weave object
 
         if self.evaluate:
             evaluation_results = await self.evaluate(md_page, translated_page)
@@ -181,9 +179,10 @@ class Translator(weave.Object):
     @weave.op
     async def translate_header_description(self, md_page: MDPage):
         """Translate the header description"""
-        return await translate_content(
+        translated_description = await translate_content(
             md_page.header.description, self.prompt_template, **self.model_args
         )
+        return translated_description
 
     @weave.op
     async def evaluate(self, md_page: MDPage, translated_page: MDPage):

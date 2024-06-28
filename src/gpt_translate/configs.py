@@ -31,7 +31,7 @@ class TranslationConfig(Serializable):
     remove_comments: bool = True  # Remove comments
     do_evaluation: bool = True  # Do evaluation
     max_openai_concurrent_calls: int = 7  # Max number of concurrent calls to OpenAI
-    max_chunk_tokens: int = 3600  # Max number of tokens in a chunk
+    max_chunk_tokens: int = 2800  # Max number of tokens in a chunk
 
 
 @dataclass
