@@ -1,7 +1,7 @@
 import re, yaml
 import logging
 from typing import Optional
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 
 import weave
 from pydantic import model_validator, Field
@@ -73,8 +73,8 @@ def extract_markdown_links(filename, content):
             links.append(MDLink(title, target, filename, i + 1))
     return links
 
-
-class Header(weave.Object):
+@dataclass
+class Header:
     title: Optional[str] = None
     description: Optional[str] = None
     slug: Optional[str] = None
@@ -112,7 +112,8 @@ class Header(weave.Object):
 
     def __str__(self) -> str:
         parts = []
-        attrs = {k: v for k, v in self.model_dump().items() if v and k != "imports"}
+        attrs = {k: v for k, v in asdict(self).items() if v and k != "imports"}
+        # sort by key
         if attrs:
             attr_parts = ""
             attr_parts += "---\n"

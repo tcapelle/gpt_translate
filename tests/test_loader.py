@@ -126,8 +126,8 @@ def test_empty_header():
 
 def test_header_with_title():
     header = """---
-description: Hosting W&B Server on on-premises infrastructure
 title: Install on on-prem infra
+description: Hosting W&B Server on on-premises infrastructure
 displayed_sidebar: default
 ---
 import Tabs from '@theme/Tabs';
@@ -162,8 +162,8 @@ def test_header_serialization_with_japanese_characters():
     )
     expected_header = """
 ---
-description: オンプレミス インフラストラクチャー上での W&B サーバーのホスティング
 title: オンプレミス インフラストラクチャー
+description: オンプレミス インフラストラクチャー上での W&B サーバーのホスティング
 displayed_sidebar: default
 ---
 """
@@ -183,8 +183,8 @@ def test_header_serialization_with_newlines_in_description():
     )
     expected_header = """
 ---
-description: This is a description with multiple lines that should be serialized correctly.
 title: Sample Title
+description: This is a description with multiple lines that should be serialized correctly.
 displayed_sidebar: default
 ---
 """
@@ -193,3 +193,10 @@ displayed_sidebar: default
         == "This is a description\nwith multiple lines\nthat should be serialized correctly.\n"
     )
     assert str(header_obj) == expected_header.strip()
+
+
+def test_header_class():
+    "Empty header"
+    h = Header(title=None, description=None, slug=None, displayed_sidebar=None, imports=None)
+    assert str(h) == ""
+

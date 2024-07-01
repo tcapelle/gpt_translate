@@ -184,7 +184,7 @@ class Translator(weave.Object):
             logging.warning(f"File may be empty: {md_file}")
         md_page = MDPage.from_raw_content(filename=md_file, raw_content=md_content)
         logging.debug(
-            f"[bold red blink]Calling OpenAI [/bold red blink]with {self.model_args}\nFile: {md_file}\nContent: {md_content[:100]}...",
+            f"[bold red blink]Calling OpenAI [/bold red blink]with {self.model_args}\nFile: {md_file}\nContent:\n{md_content[:100]}...",
             extra={"markup": True},
         )
         translated_page = await self.translate_page(md_page)
