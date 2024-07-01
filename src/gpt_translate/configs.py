@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import simple_parsing
 from simple_parsing.helpers import Serializable
 
-DEFAULT_CONFIG_PATH = "./configs_dev/config.yaml"
+DEFAULT_CONFIG_PATH = "./configs/config.yaml"
 
 
 # This file is in sync with the config.yaml file
@@ -14,6 +14,7 @@ DEFAULT_CONFIG_PATH = "./configs_dev/config.yaml"
 class ModelConfig(Serializable):
     model: str = "gpt-4o"  # Model to use
     temperature: float = 1.0  # Temperature to use
+    max_tokens: int = 4096  # Max tokens to use
 
 
 @dataclass
@@ -31,7 +32,6 @@ class TranslationConfig(Serializable):
     remove_comments: bool = True  # Remove comments
     do_evaluation: bool = True  # Do evaluation
     max_openai_concurrent_calls: int = 7  # Max number of concurrent calls to OpenAI
-    max_chunk_tokens: int = 2800  # Max number of tokens in a chunk
 
 
 @dataclass

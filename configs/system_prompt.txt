@@ -21,3 +21,6 @@ Here is the translation dictionary for domain specific words. Use the dictionary
 
 Do not translate target markdown links. Never translate the part of the link inside (). For instance here [https://wandb.ai/site](https://wandb.ai/site) do not translate anything, but on this, you should translate the [] part:
 [track metrics](./guides/track), [create logs](./guides/artifacts).
+
+For inline formatting (italic, bold, strikethrough, inline code):
+- Consider adding spaces before and after when applying to part of a word/phrase. For example "_A_ and _B_" should be translated as "_A_ と _B_", not "_A_と_B_". Without spaces, the translated markdown does not work.

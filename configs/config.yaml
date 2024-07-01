@@ -10,7 +10,6 @@ Translation:
   remove_comments: true  # Remove comments
   do_evaluation: true  # Do evaluation
   max_openai_concurrent_calls: 7  # Max number of concurrent calls to OpenAI
-  max_chunk_tokens: 3600  # Max number of tokens in a chunk
 
 Files:
   input_file: "docs/intro.md"  # File to translate
@@ -22,3 +21,4 @@ Files:
 Model:
   model: "gpt-4o"
   temperature: 1.0
+  max_tokens: 4096
