@@ -3,7 +3,7 @@ from gpt_translate.utils import file_is_empty, get_md_files
 
 def test_empty_file():
     "Check that the files are non empty"
-    assert  file_is_empty("tests/data/empty.md")
+    assert file_is_empty("tests/data/empty.md")
     assert not file_is_empty("tests/data/intro.md")
 
 
