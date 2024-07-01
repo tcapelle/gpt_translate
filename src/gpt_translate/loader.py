@@ -1,5 +1,6 @@
 import re, yaml
 import logging
+from typing import Optional
 from dataclasses import dataclass
 
 import weave
@@ -72,12 +73,13 @@ def extract_markdown_links(filename, content):
             links.append(MDLink(title, target, filename, i + 1))
     return links
 
+
 class Header(weave.Object):
-    title: str = ""
-    description: str = ""
-    slug: str = ""
-    displayed_sidebar: str = ""
-    imports: str = ""
+    title: Optional[str] = None
+    description: Optional[str] = None
+    slug: Optional[str] = None
+    displayed_sidebar: Optional[str] = None
+    imports: Optional[str] = None
 
     @classmethod
     def from_string(cls, input_string: str):
@@ -111,7 +113,6 @@ class Header(weave.Object):
     def __str__(self) -> str:
         parts = []
         attrs = {k: v for k, v in self.model_dump().items() if v and k != "imports"}
-        print(f"attrs: {attrs}")
         if attrs:
             attr_parts = ""
             attr_parts += "---\n"
@@ -125,7 +126,6 @@ class Header(weave.Object):
         if self.imports:
             parts.append(self.imports)
         header = "\n".join(parts).encode("utf-8").decode("utf-8")
-        print(f"\n\nheader: {header}\n\n")
         return header
 
 
@@ -153,12 +153,12 @@ def extract_header(content: str) -> dict:
             break
 
     # Extract imports and content
-    remaining_lines = lines[len(frontmatter):]
+    remaining_lines = lines[len(frontmatter) :]
     for line in remaining_lines:
         if line.strip().startswith("import "):
             imports.append(line)
         else:
-            content_lines = remaining_lines[len(imports):]
+            content_lines = remaining_lines[len(imports) :]
             break
 
     # Combine frontmatter and imports for header
@@ -237,5 +237,3 @@ class MDPage(weave.Object):
         if str(self.header).strip():
             return f"{self.header}\n\n{self.content}"
         return str(self.content)
-
-
