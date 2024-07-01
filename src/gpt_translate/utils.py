@@ -17,7 +17,7 @@ def remove_after(text, sep=["\n\n", "\n", ". ", ", "]):
     for s in sep:
         if s in text:
             index = text.rfind(s)
-            output_text = text[:(index + len(s))]
+            output_text = text[: (index + len(s))]
             break
     else:
         s = None

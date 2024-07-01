@@ -17,7 +17,12 @@ import weave
 from pydantic import model_validator, Field
 
 from gpt_translate.prompts import PromptTemplate
-from gpt_translate.loader import remove_markdown_comments, MDPage, Header, split_markdown
+from gpt_translate.loader import (
+    remove_markdown_comments,
+    MDPage,
+    Header,
+    split_markdown,
+)
 from gpt_translate.utils import file_is_empty, count_tokens, remove_after
 from gpt_translate.validate import validate_links, validate_headers
 
@@ -30,9 +35,11 @@ REPLACE = False
 REMOVE_COMMENTS = True
 MAX_OPENAI_CONCURRENT_CALLS = 7  # Adjust the limit as needed
 
+
 @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
 async def completion_with_backoff(**kwargs):
     return await client.chat.completions.create(**kwargs)
+
 
 @weave.op
 async def longer_create(messages=None, max_tokens=4096, **kwargs):
@@ -43,14 +50,13 @@ async def longer_create(messages=None, max_tokens=4096, **kwargs):
         messages = []
 
     res = await completion_with_backoff(
-        messages=messages,
-        max_tokens=max_tokens,
-        **kwargs
+        messages=messages, max_tokens=max_tokens, **kwargs
     )
     message_content = res.choices[0].message.content
     logging.debug(res.usage)
     logging.debug(
-        f"[blue]OpenAI response:\n{message_content[:100]}...[/blue]", extra={"markup": True}
+        f"[blue]OpenAI response:\n{message_content[:100]}...[/blue]",
+        extra={"markup": True},
     )
     # trim message to the last separator
     process_tail = remove_after(message_content)
@@ -58,9 +64,11 @@ async def longer_create(messages=None, max_tokens=4096, **kwargs):
 
     messages.append({"role": "assistant", "content": process_tail["text"]})
 
-    if finish_reason == 'length':
+    if finish_reason == "length":
         # Recursively call the function with the last assistant's message
-        next_response = await longer_create(messages=messages, max_tokens=max_tokens, **kwargs)
+        next_response = await longer_create(
+            messages=messages, max_tokens=max_tokens, **kwargs
+        )
         return process_tail["text"] + next_response
     else:
         return process_tail["text"]
@@ -71,8 +79,11 @@ class TranslationResult:
     content: str
     tokens: int
 
+
 @weave.op
-async def translate_content(md_content: str, prompt: PromptTemplate, token_count: int=None, **model_args):
+async def translate_content(
+    md_content: str, prompt: PromptTemplate, token_count: int = None, **model_args
+):
     """Translate a markdown chunk asynchronously
     md_content: markdown content
     prompt: PromptTemplate object
@@ -82,6 +93,7 @@ async def translate_content(md_content: str, prompt: PromptTemplate, token_count
         messages=prompt.format(md_chunk=md_content), **model_args
     )
     return TranslationResult(content=output, tokens=count_tokens(output))
+
 
 class Translator(weave.Object):
     "A class to translate markdown files asynchronously"
@@ -177,13 +189,6 @@ class Translator(weave.Object):
         )
         translated_page = await self.translate_page(md_page)
 
-        if md_page.header.description:
-            logging.debug(
-                f"Translating header description: {md_page.header.description}"
-            )
-            translated_description = await self.translate_header_description(md_page)
-            translated_page.header.description = translated_description.content  #updating the Weave object
-
         if self.evaluate:
             evaluation_results = await self.evaluate(md_page, translated_page)
             return {
@@ -201,19 +206,31 @@ class Translator(weave.Object):
             md_page.content, self.prompt_template, **self.model_args
         )
         logging.debug(f"Translated content: {translated_content}")
-
-        translated_header_description = await self.translate_header_description(md_page)
-        if translate_header:
+        if md_page.header.description:
+            translated_header_description = await self.translate_header_description(
+                md_page
+            )
+            logging.debug(
+                f"Translating header description: {md_page.header.description}"
+            )
             new_header = Header(
                 title=md_page.header.title,
-                description=translated_header_description.content,
+                description=(
+                    translated_header_description.content
+                    if md_page.header.description
+                    else None
+                ),
                 slug=md_page.header.slug,
                 displayed_sidebar=md_page.header.displayed_sidebar,
                 imports=md_page.header.imports,
             )
         else:
             new_header = md_page.header
-        return MDPage(filename=md_page.filename, content=translated_content.content, header=new_header)
+        return MDPage(
+            filename=md_page.filename,
+            content=translated_content.content,
+            header=new_header,
+        )
 
     @weave.op
     async def translate_header_description(self, md_page: MDPage):
@@ -319,7 +336,9 @@ async def _translate_files(
         logging.info(f"Reading {input_files}")
         input_files = Path(input_files).read_text().splitlines()
     input_files = [Path(f) for f in input_files if Path(f).suffix == ".md"]
-    logging.info(f"Translating {len(input_files)} file" + ("s" if len(input_files) > 1 else ""))
+    logging.info(
+        f"Translating {len(input_files)} file" + ("s" if len(input_files) > 1 else "")
+    )
     input_files.sort()
     input_folder = Path(input_folder)
     out_folder = Path(out_folder)
@@ -349,14 +368,16 @@ async def _translate_files(
 
 if __name__ == "__main__":
     from gpt_translate.cli import setup_logging
-    setup_logging(debug=True, silence_openai=True, weave_project="gpt-translate")
-    asyncio.run( _translate_files(
-        input_files="long.txt",
-        input_folder="../docodile/docs_main/",
-        out_folder= "../docodile/docs/",
-        replace=True,
-        language="ja",
-        config_folder="./configs_dev",
-        do_evaluation=True,
-    ))
 
+    setup_logging(debug=True, silence_openai=True, weave_project="gpt-translate")
+    asyncio.run(
+        _translate_files(
+            input_files="one.txt",
+            input_folder="../docodile/docs_main/",
+            out_folder="../docodile/docs/",
+            replace=True,
+            language="ja",
+            config_folder="./configs",
+            do_evaluation=True,
+        )
+    )
