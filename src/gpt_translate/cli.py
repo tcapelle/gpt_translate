@@ -54,7 +54,6 @@ def translate_file(args=None):
             remove_comments=translation_args.remove_comments,
             do_evaluation=translation_args.do_evaluation,
             model_args=asdict(model_args),
-            max_chunk_tokens=translation_args.max_chunk_tokens,
         )
     )
 
@@ -81,7 +80,6 @@ def translate_files(args=None):
             do_evaluation=translation_args.do_evaluation,
             max_openai_concurrent_calls=translation_args.max_openai_concurrent_calls,
             model_args=asdict(model_args),
-            max_chunk_tokens=translation_args.max_chunk_tokens,
         )
     )
 
@@ -109,7 +107,6 @@ def translate_folder(args=None):
             do_evaluation=translation_args.do_evaluation,
             max_openai_concurrent_calls=translation_args.max_openai_concurrent_calls,
             model_args=asdict(model_args),
-            max_chunk_tokens=translation_args.max_chunk_tokens,
         )
     )
 

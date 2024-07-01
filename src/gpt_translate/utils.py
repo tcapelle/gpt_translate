@@ -1,11 +1,27 @@
 import time
 import logging
+import weave
 from pathlib import Path
 
 from fastcore.xtras import globtastic
 import tiktoken
 
 MODEL = "gpt-4"
+
+
+@weave.op
+def remove_after(text, sep=["\n\n", "\n", ". ", ", "]):
+    "Find the last `sep` from the end of the string backwards. Remove the trailing text after the line break."
+    index = None
+    output_text = text
+    for s in sep:
+        if s in text:
+            index = text.rfind(s)
+            output_text = text[:(index + len(s))]
+            break
+    else:
+        s = None
+    return {"text": output_text, "sep_break": s}
 
 
 def measure_execution_time(func):
