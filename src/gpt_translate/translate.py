@@ -17,8 +17,8 @@ import weave
 from pydantic import model_validator, Field
 
 from gpt_translate.prompts import PromptTemplate
-from gpt_translate.loader import remove_markdown_comments, MDPage, split_markdown
-from gpt_translate.utils import file_is_empty, count_tokens
+from gpt_translate.loader import remove_markdown_comments, MDPage, Header, split_markdown
+from gpt_translate.utils import file_is_empty, count_tokens, remove_after
 from gpt_translate.validate import validate_links, validate_headers
 
 
@@ -29,12 +29,42 @@ client = AsyncOpenAI()
 REPLACE = False
 REMOVE_COMMENTS = True
 MAX_OPENAI_CONCURRENT_CALLS = 7  # Adjust the limit as needed
-MAX_CHUNK_TOKENS = 3000
-
 
 @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
 async def completion_with_backoff(**kwargs):
     return await client.chat.completions.create(**kwargs)
+
+@weave.op
+async def longer_create(messages=None, max_tokens=4096, **kwargs):
+    """
+    longer_create is a function that extends the max_tokens beyond the default 4096 by recursively calling the create method if the finish_reason is hitting the max_tokens.
+    """
+    if messages is None:
+        messages = []
+
+    res = await completion_with_backoff(
+        messages=messages,
+        max_tokens=max_tokens,
+        **kwargs
+    )
+    message_content = res.choices[0].message.content
+    logging.debug(res.usage)
+    logging.debug(
+        f"[blue]OpenAI response:\n{message_content[:100]}...[/blue]", extra={"markup": True}
+    )
+    # trim message to the last separator
+    process_tail = remove_after(message_content)
+    finish_reason = res.choices[0].finish_reason
+
+    messages.append({"role": "assistant", "content": process_tail["text"]})
+
+    if finish_reason == 'length':
+        # Recursively call the function with the last assistant's message
+        next_response = await longer_create(messages=messages, max_tokens=max_tokens, **kwargs)
+        return process_tail["text"] + next_response
+    else:
+        return process_tail["text"]
+
 
 @dataclass
 class TranslationResult:
@@ -48,14 +78,9 @@ async def translate_content(md_content: str, prompt: PromptTemplate, token_count
     prompt: PromptTemplate object
     return: translated page
     """
-    res = await completion_with_backoff(
+    output = await longer_create(
         messages=prompt.format(md_chunk=md_content), **model_args
     )
-    output = res.choices[0].message.content
-    logging.debug(
-        f"[blue]OpenAI response:\n{output[:100]}...[/blue]", extra={"markup": True}
-    )
-    logging.debug(res.usage)
     return TranslationResult(content=output, tokens=count_tokens(output))
 
 class Translator(weave.Object):
@@ -64,7 +89,6 @@ class Translator(weave.Object):
     language: str = "ja"
     do_evaluation: bool = True
     model_args: dict = dict(model="gpt-4o", temperature=1.0)
-    max_chunk_tokens: int = MAX_CHUNK_TOKENS
     evaluation_prompt: Optional[str] = Field(default=None)
     prompt_template: PromptTemplate = Field(default=None)
 
@@ -91,50 +115,50 @@ class Translator(weave.Object):
         )
         return values
 
-    @weave.op
-    async def translate_splitted_md(
-        self,
-        splitted_markdown: list[str],
-        sep: str = "\n\n",
-    ) -> str:
-        """Translate a list of markdown chunks asynchronously
-        splitted_markdown: list of markdown chunks
-        prompt: PromptTemplate object
-        max_chunk_tokens: maximum number of tokens per chunk
-        sep: separator between chunks
-        model_args: arguments to pass to the completion_with_backoff function
-        return: translated markdown file
-        """
+    # @weave.op
+    # async def translate_splitted_md(
+    #     self,
+    #     splitted_markdown: list[str],
+    #     sep: str = "\n\n",
+    # ) -> str:
+    #     """Translate a list of markdown chunks asynchronously
+    #     splitted_markdown: list of markdown chunks
+    #     prompt: PromptTemplate object
+    #     max_chunk_tokens: maximum number of tokens per chunk
+    #     sep: separator between chunks
+    #     model_args: arguments to pass to the completion_with_backoff function
+    #     return: translated markdown file
+    #     """
 
-        tasks = []
-        packed_chunks = ""
-        packed_chunks_len = 0
+    #     tasks = []
+    #     packed_chunks = ""
+    #     packed_chunks_len = 0
 
-        translated_chunks = []
-        for i, chunk in enumerate(splitted_markdown):
-            n_tokens = count_tokens(chunk)
+    #     translated_chunks = []
+    #     for i, chunk in enumerate(splitted_markdown):
+    #         n_tokens = count_tokens(chunk)
 
-            if packed_chunks_len + n_tokens <= self.max_chunk_tokens:
-                logging.debug(f"Packing chunk {i} with {n_tokens} tokens")
-                packed_chunks += sep + chunk
-                packed_chunks_len += n_tokens
-            else:
-                logging.debug(f">> Translating {packed_chunks_len} tokens")
-                translated_chunk = await translate_content(
-                    packed_chunks, self.prompt_template, token_count=packed_chunks_len, **self.model_args
-                )
-                translated_chunks.append(translated_chunk.content)
-                logging.debug(f">> Translated {translated_chunk.tokens} tokens")
-                packed_chunks = chunk
-                packed_chunks_len = n_tokens
+    #         if packed_chunks_len + n_tokens <= self.max_chunk_tokens:
+    #             logging.debug(f"Packing chunk {i} with {n_tokens} tokens")
+    #             packed_chunks += sep + chunk
+    #             packed_chunks_len += n_tokens
+    #         else:
+    #             logging.debug(f">> Translating {packed_chunks_len} tokens")
+    #             translated_chunk = await translate_content(
+    #                 packed_chunks, self.prompt_template, token_count=packed_chunks_len, **self.model_args
+    #             )
+    #             translated_chunks.append(translated_chunk.content)
+    #             logging.debug(f">> Translated {translated_chunk.tokens} tokens")
+    #             packed_chunks = chunk
+    #             packed_chunks_len = n_tokens
 
-        if packed_chunks:
-            logging.debug(f">> Translating {packed_chunks_len} tokens (last chunk)")
-            translated_chunk = await translate_content(
-                packed_chunks, self.prompt_template, token_count=packed_chunks_len, **self.model_args
-            )
-            translated_chunks.append(translated_chunk.content)
-        return sep.join(translated_chunks)
+    #     if packed_chunks:
+    #         logging.debug(f">> Translating {packed_chunks_len} tokens (last chunk)")
+    #         translated_chunk = await translate_content(
+    #             packed_chunks, self.prompt_template, token_count=packed_chunks_len, **self.model_args
+    #         )
+    #         translated_chunks.append(translated_chunk.content)
+    #     return sep.join(translated_chunks)
 
     @weave.op
     async def translate_file(self, md_file: str, remove_comments: bool = True):
@@ -146,7 +170,7 @@ class Translator(weave.Object):
             md_content = remove_markdown_comments(md_content)
         if len(md_content.strip()) < 20:
             logging.warning(f"File may be empty: {md_file}")
-        md_page = MDPage(filename=md_file, raw_content=md_content)
+        md_page = MDPage.from_raw_content(filename=md_file, raw_content=md_content)
         logging.debug(
             f"[bold red blink]Calling OpenAI [/bold red blink]with {self.model_args}\nFile: {md_file}\nContent: {md_content[:100]}...",
             extra={"markup": True},
@@ -169,12 +193,27 @@ class Translator(weave.Object):
         return {"translated_page": translated_page}
 
     @weave.op
-    async def translate_page(self, md_page: MDPage):
+    async def translate_page(self, md_page: MDPage, translate_header: bool = True):
         """Translate a markdown page asynchronously"""
-        chunks = split_markdown(md_page.content)
-        translated_content = await self.translate_splitted_md(chunks)
+        # chunks = split_markdown(md_page.content)
+        # translated_content = await self.translate_splitted_md(chunks)
+        translated_content = await translate_content(
+            md_page.content, self.prompt_template, **self.model_args
+        )
+        logging.debug(f"Translated content: {translated_content}")
 
-        return md_page.from_translated(translated_content, fix_links=False)
+        translated_header_description = await self.translate_header_description(md_page)
+        if translate_header:
+            new_header = Header(
+                title=md_page.header.title,
+                description=translated_header_description.content,
+                slug=md_page.header.slug,
+                displayed_sidebar=md_page.header.displayed_sidebar,
+                imports=md_page.header.imports,
+            )
+        else:
+            new_header = md_page.header
+        return MDPage(filename=md_page.filename, content=translated_content.content, header=new_header)
 
     @weave.op
     async def translate_header_description(self, md_page: MDPage):
@@ -227,7 +266,6 @@ async def _translate_file(
     remove_comments: bool = REMOVE_COMMENTS,  # Remove comments
     do_evaluation: bool = True,  # Evaluate the translated file
     model_args: dict = dict(model="gpt-4o", temperature=1.0),  # model args
-    max_chunk_tokens: int = MAX_CHUNK_TOKENS,  # max number of tokens in a chunk
 ) -> MDPage:
     """Translate a markdown file asynchronously"""
     if file_is_empty(input_file):
@@ -247,7 +285,6 @@ async def _translate_file(
                 language=language,
                 do_evaluation=do_evaluation,
                 model_args=model_args,
-                max_chunk_tokens=max_chunk_tokens,
             )
             translation_results = await translator.translate_file(
                 input_file, remove_comments
@@ -276,7 +313,6 @@ async def _translate_files(
     do_evaluation: bool = True,  # Evaluate the translated file
     model_args: dict = dict(model="gpt-4o", temperature=1.0),  # model args
     max_openai_concurrent_calls: int = MAX_OPENAI_CONCURRENT_CALLS,  # Maximum number of concurrent calls to OpenAI
-    max_chunk_tokens: int = MAX_CHUNK_TOKENS,  # max number of tokens in a chunk
 ):
     # let's make input_files support a txt file with a list of files
     if Path(input_files).suffix == ".txt":
@@ -304,7 +340,6 @@ async def _translate_files(
                 remove_comments=remove_comments,
                 do_evaluation=do_evaluation,
                 model_args=model_args,
-                max_chunk_tokens=max_chunk_tokens,
             )
 
     tasks = [_translate_with_semaphore(md_file) for md_file in input_files]
@@ -323,6 +358,5 @@ if __name__ == "__main__":
         language="ja",
         config_folder="./configs_dev",
         do_evaluation=True,
-        max_chunk_tokens=2000,
     ))
 
