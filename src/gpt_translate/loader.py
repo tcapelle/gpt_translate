@@ -1,8 +1,6 @@
 import re, yaml
 import logging
-from pathlib import Path
-from dataclasses import dataclass, asdict
-from typing import Optional
+from dataclasses import dataclass
 
 import weave
 from pydantic import model_validator, Field
@@ -74,13 +72,6 @@ def extract_markdown_links(filename, content):
             links.append(MDLink(title, target, filename, i + 1))
     return links
 
-def represent_str(dumper, data):
-    # Replace newlines with spaces and trim leading/trailing whitespace
-    one_liner = re.sub(r'\n+', ' ', data).strip()
-    return dumper.represent_scalar('tag:yaml.org,2002:str', one_liner)
-
-yaml.add_representer(str, represent_str)
-
 class Header(weave.Object):
     title: str = ""
     description: str = ""
@@ -120,12 +111,22 @@ class Header(weave.Object):
     def __str__(self) -> str:
         parts = []
         attrs = {k: v for k, v in self.model_dump().items() if v and k != "imports"}
+        print(f"attrs: {attrs}")
         if attrs:
-            yaml_content = yaml.dump(attrs, sort_keys=False, allow_unicode=True, default_flow_style=False)
-            parts.append(f"---\n{yaml_content.strip()}\n---")
+            attr_parts = ""
+            attr_parts += "---\n"
+            for key, value in attrs.items():
+                # let's handle if value is a multiline string by removing the line breaks
+                if isinstance(value, str):
+                    value = value.strip().replace("\n", " ")
+                attr_parts += f"{key}: {value}\n"
+            attr_parts += "---"
+            parts.append(attr_parts)
         if self.imports:
             parts.append(self.imports)
-        return "\n".join(parts).encode("utf-8").decode("utf-8")
+        header = "\n".join(parts).encode("utf-8").decode("utf-8")
+        print(f"\n\nheader: {header}\n\n")
+        return header
 
 
 @weave.op
@@ -190,39 +191,26 @@ def find_links(raw_content: str, filename: str) -> list[MDLink]:
 
 class MDPage(weave.Object):
     filename: str
-    raw_content: str
-    header: Header = Field(default=None)
+    content: str
+    header: Header
     links: list[MDLink] = Field(default=None)
-    content: str = Field(init=False)
-
-    @model_validator(mode="before")
-    def initialize_fields(cls, values):
-        raw_content = values.get("raw_content", "")
-        if "header" not in values or values["header"] is None:
-            extracted = extract_header(raw_content)
-            header = extracted["header"]
-            content = extracted["content"]
-            values["header"] = Header.from_string(header)
-            values["content"] = content
-        else:
-            values["content"] = raw_content[len(str(values["header"])) :]
-        return values
 
     @model_validator(mode="after")
     def set_links(self):
-        self.links = find_links(self.raw_content, self.filename)
+        self.links = find_links(self.content, self.filename)
         return self
 
-    @weave.op
-    def from_translated(
-        self, translated_content: str, fix_links: bool = True
-    ) -> "MDPage":
-        translated_page = MDPage(
-            filename=self.filename, raw_content=f"{self.header}\n{translated_content}"
+    @classmethod
+    def from_raw_content(cls, filename: str, raw_content: str) -> "MDPage":
+        extracted = extract_header(raw_content)
+        header = extracted["header"]
+        content = extracted["content"]
+        header = Header.from_string(header)
+        return cls(
+            filename=filename,
+            content=content,
+            header=header,
         )
-        if fix_links:
-            translated_page.update_links(self.links)
-        return translated_page
 
     @weave.op
     def update_links(self, new_links: list[MDLink], targets_only=True) -> None:
@@ -240,7 +228,7 @@ class MDPage(weave.Object):
                 logging.debug(f"Replacing {old_link} with {new_link}")
                 self.content = self.content.replace(old_link.target, new_link.target)
         if targets_only:
-            self.links = self.find_links(self.raw_content)
+            self.links = self.find_links(self.content)
         else:
             self.links = new_links
 
