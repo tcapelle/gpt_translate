@@ -50,7 +50,7 @@ def get_md_files(path: Path | str, files_glob: str = "*.md", file_re: str = None
     if path.is_file():
         return [path]
     files = globtastic(path, file_glob=files_glob, file_re=file_re)
-    return [Path(f) for f in files.sorted() if f.exists()]
+    return [Path(f) for f in files.sorted() if Path(f).exists()]
 
 
 def _copy_images(src_path: Path | str, dst_path: Path | str):

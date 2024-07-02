@@ -1,3 +1,5 @@
+import re
+
 import weave
 from gpt_translate.loader import MDPage
 
@@ -41,3 +43,24 @@ def validate_headers(original_page: MDPage, translated_page: MDPage):
         "displayed_sidebar_match": displayed_sidebar_match,
         "imports_match": imports_match,
     }
+
+def _validate_tabs_format(content: str) -> bool:
+    tab_pattern = re.compile(
+        r"""
+        <Tabs\s*[^>]*>\s*
+        (?:<TabItem\s*[^>]*>\s*.*?\s*</TabItem>\s*)+
+        </Tabs>
+        """,
+        re.DOTALL | re.VERBOSE,
+    )
+    return bool(tab_pattern.search(content))
+
+
+@weave.op
+def validate_tabs(translated_page: MDPage):
+    """
+    Validate the Tabs in the docosaurus format
+    """
+    content = translated_page.content
+
+    return {"tabs_format_valid": _validate_tabs_format(content)}

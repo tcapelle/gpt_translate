@@ -24,7 +24,7 @@ from gpt_translate.loader import (
     split_markdown,
 )
 from gpt_translate.utils import file_is_empty, count_tokens, remove_after
-from gpt_translate.validate import validate_links, validate_headers
+from gpt_translate.validate import validate_links, validate_headers, validate_tabs
 
 
 # Use the OpenAI API in async mode
@@ -71,7 +71,7 @@ async def longer_create(messages=None, max_tokens=4096, **kwargs):
         )
         return process_tail["text"] + next_response
     else:
-        return process_tail["text"]
+        return message_content
 
 
 @dataclass
@@ -245,8 +245,10 @@ class Translator(weave.Object):
         """Validate the translation"""
         links_validation = validate_links(md_page, translated_page)
         headers_validation = validate_headers(md_page, translated_page)
+        tabs_validation = validate_tabs(translated_page)
         logging.debug(f"✅ Links validation: {links_validation}")
         logging.debug(f"✅ Headers validation: {headers_validation}")
+        logging.debug(f"✅ Tabs validation: {tabs_validation}")
         translation_validation = await self.evaluate_translation(
             md_page, translated_page
         )
@@ -254,6 +256,7 @@ class Translator(weave.Object):
         return {
             "links_validation": links_validation,
             "headers_validation": headers_validation,
+            "tabs_validation": tabs_validation,
             "translation_validation": translation_validation,
         }
 
