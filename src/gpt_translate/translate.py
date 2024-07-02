@@ -315,7 +315,7 @@ async def _translate_file(
             return translation_results
         except Exception as e:
             logging.error(f"❌ Error translating {input_file}: {e}")
-            raise e
+            # raise e
 
 
 @weave.op
@@ -335,7 +335,7 @@ async def _translate_files(
     if Path(input_files).suffix == ".txt":
         logging.info(f"Reading {input_files}")
         input_files = Path(input_files).read_text().splitlines()
-    input_files = [Path(f) for f in input_files if Path(f).suffix == ".md"]
+    input_files = [Path(f) for f in input_files if (Path(f).suffix == ".md" and Path(f).exists())]
     logging.info(
         f"Translating {len(input_files)} file" + ("s" if len(input_files) > 1 else "")
     )
