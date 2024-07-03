@@ -127,6 +127,7 @@ class NewFilesArgs:
     repo: Path
     extension: str = ".md"
     since_days: int = 14
+    out_file: Path = "./changed_files.txt"
 
 def new_files(args=None):
     args = simple_parsing.parse(NewFilesArgs)
@@ -137,5 +138,7 @@ def new_files(args=None):
         extension=args.extension, 
         since_days=args.since_days
     )
-    for file in modified_files:
-        print(file)
+    with open(args.out_file, "w") as f:
+        for file in modified_files:
+            f.write(str(file) + "\n")
+            print(file)
