@@ -2,13 +2,11 @@
 [![Weave](https://raw.githubusercontent.com/wandb/weave/master/docs/static/img/logo.svg)](https://wandb.ai/capecape/gpt-translate/weave/)
 
 # gpt_translate: Translating MD files with GPT-4
-This is a tool to translate the language in Markdown files.
+This is a tool to translate Markdown files without breaking the structure of the document. It is powered by OpenAI models and has multiple parsing and formatting options. The provided default example is the one we use to translate our documentation website [docs.wandb.ai](https://docs.wandb.ai) to [japanese](https://docs.wandb.ai/ja/) and [korean](https://docs.wandb.ai/ko/).
 
 ![](assets/screenshot.png)
 
-
-
-> You will need and OpenAI API key to use this tool.
+> You can click [here](https://wandb.ai/capecape/gpt-translate/r/call/a18deff9-a963-4ad6-b5d6-b0ae63580575) to see the output of the translation on the screenshot above.
 
 ## Installation
 We have a stable version on PyPi, so you can install it with pip:
