@@ -102,12 +102,13 @@ $ gpt_translate.folder \
   --input_folder docs \
   --out_folder docs_ja \
   --language ja
+$ gpt_translate.file --help
 ```
 
 If you don't know what to do, you can always do `--help` on any of the commands:
 
 ```bash
-$ gpt_translate.files --help
+$ gpt_translate.* --help
 ```
 
 ## Validation
