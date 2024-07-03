@@ -50,7 +50,7 @@ config_folder: "./configs"  # Config folder, where the prompts and dictionaries 
 replace: true  # Replace existing file
 remove_comments: true  # Remove comments
 do_evaluation: true  # Do evaluation
-translate_header_description: true  # Translate the header description
+do_translate_header_description: true  # Translate the header description
 max_openai_concurrent_calls: 7  # Max number of concurrent calls to OpenAI
 
 # Files:

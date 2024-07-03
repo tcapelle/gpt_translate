@@ -58,14 +58,14 @@ async def longer_create(messages=None, max_tokens=4096, **kwargs):
         f"[blue]OpenAI response:\n{message_content[:100]}...[/blue]",
         extra={"markup": True},
     )
-    # trim message to the last separator
-    process_tail = remove_after(message_content)
+
     finish_reason = res.choices[0].finish_reason
-
-    messages.append({"role": "assistant", "content": process_tail["text"]})
-
     if finish_reason == "length":
+        # trim message to the last separator
+        process_tail = remove_after(message_content)
+        messages.append({"role": "assistant", "content": process_tail["text"]})
         # Recursively call the function with the last assistant's message
+        logging.debug(f"Recursively calling with {messages[-1]['content'][:100]}")
         next_response = await longer_create(
             messages=messages, max_tokens=max_tokens, **kwargs
         )
@@ -100,7 +100,7 @@ class Translator(weave.Object):
     config_folder: Path
     language: str = "ja"
     do_evaluation: bool = True
-    translate_header_description: bool = True
+    do_translate_header_description: bool = True
     model_args: dict = dict(model="gpt-4o", temperature=1.0)
     evaluation_prompt: Optional[str] = Field(default=None)
     prompt_template: PromptTemplate = Field(default=None)
@@ -207,7 +207,7 @@ class Translator(weave.Object):
             md_page.content, self.prompt_template, **self.model_args
         )
         logging.debug(f"Translated content: {translated_content}")
-        if md_page.header.description and self.translate_header_description: # check if header contains a description
+        if md_page.header.description and self.do_translate_header_description: # check if header contains a description
             translated_header_description = await self.translate_header_description(
                 md_page
             )
@@ -286,7 +286,7 @@ async def _translate_file(
     config_folder: str = "./configs",  # Config folder
     remove_comments: bool = REMOVE_COMMENTS,  # Remove comments
     do_evaluation: bool = True,  # Evaluate the translated file
-    translate_header_description: bool = True,  # Translate the header description
+    do_translate_header_description: bool = True,  # Translate the header description
     model_args: dict = dict(model="gpt-4o", temperature=1.0),  # model args
 ) -> MDPage:
     """Translate a markdown file asynchronously"""
@@ -306,7 +306,7 @@ async def _translate_file(
                 config_folder=config_folder,
                 language=language,
                 do_evaluation=do_evaluation,
-                translate_header_description=translate_header_description,
+                do_translate_header_description=do_translate_header_description,
                 model_args=model_args,
             )
             translation_results = await translator.translate_file(
@@ -321,7 +321,7 @@ async def _translate_file(
             return translation_results
         except Exception as e:
             logging.error(f"❌ Error translating {input_file}: {e}")
-            # raise e
+            raise e
 
 
 @weave.op
@@ -334,6 +334,7 @@ async def _translate_files(
     config_folder: str = "./configs",  # Config folder
     remove_comments: bool = REMOVE_COMMENTS,  # Remove comments
     do_evaluation: bool = True,  # Evaluate the translated file
+    do_translate_header_description: bool = True,  # Translate the header description
     model_args: dict = dict(model="gpt-4o", temperature=1.0),  # model args
     max_openai_concurrent_calls: int = MAX_OPENAI_CONCURRENT_CALLS,  # Maximum number of concurrent calls to OpenAI
 ):
@@ -365,6 +366,7 @@ async def _translate_files(
                 config_folder=config_folder,
                 remove_comments=remove_comments,
                 do_evaluation=do_evaluation,
+                do_translate_header_description=do_translate_header_description,
                 model_args=model_args,
             )
 

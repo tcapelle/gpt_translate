@@ -54,6 +54,7 @@ def translate_file(args=None):
             config_folder=config.config_folder,
             remove_comments=config.remove_comments,
             do_evaluation=config.do_evaluation,
+            do_translate_header_description=config.do_translate_header_description,
             model_args={"model": config.model, "temperature": config.temperature, "max_tokens": config.max_tokens},
         )
     )
@@ -79,6 +80,7 @@ def translate_files(args=None):
             config_folder=config.config_folder,
             remove_comments=config.remove_comments,
             do_evaluation=config.do_evaluation,
+            do_translate_header_description=config.do_translate_header_description,
             max_openai_concurrent_calls=config.max_openai_concurrent_calls,
             model_args={"model": config.model, "temperature": config.temperature, "max_tokens": config.max_tokens},
         )
@@ -106,6 +108,7 @@ def translate_folder(args=None):
             config_folder=config.config_folder,
             remove_comments=config.remove_comments,
             do_evaluation=config.do_evaluation,
+            do_translate_header_description=config.do_translate_header_description,
             max_openai_concurrent_calls=config.max_openai_concurrent_calls,
             model_args={"model": config.model, "temperature": config.temperature, "max_tokens": config.max_tokens},
         )
