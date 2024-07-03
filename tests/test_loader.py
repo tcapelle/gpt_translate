@@ -21,6 +21,7 @@ More content
         == """
 Some content
 
+
 More content
 """
     )
