@@ -11,7 +11,7 @@ import simple_parsing
 from dataclasses import dataclass, asdict
 
 from gpt_translate.translate import _translate_file, _translate_files
-from gpt_translate.utils import get_md_files, _copy_images
+from gpt_translate.utils import get_md_files, _copy_images, get_modified_files
 from gpt_translate.configs import setup_parsing
 
 
@@ -121,3 +121,21 @@ def copy_images(args=None):
     args = simple_parsing.parse(CopyImagesArgs)
     print(args)
     _copy_images(args.src_path, args.dst_path)
+
+@dataclass
+class NewFilesArgs:
+    repo: Path
+    extension: str = ".md"
+    since_days: int = 14
+
+def new_files(args=None):
+    args = simple_parsing.parse(NewFilesArgs)
+    print(args)
+    setup_logging(debug=False)
+    modified_files = get_modified_files(
+        repo_path=args.repo, 
+        extension=args.extension, 
+        since_days=args.since_days
+    )
+    for file in modified_files:
+        print(file)

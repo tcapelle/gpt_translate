@@ -1,6 +1,8 @@
 import time
+import git
 import logging
 import weave
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from fastcore.xtras import globtastic
@@ -84,3 +86,38 @@ def count_tokens(chunk, model=MODEL):
 
 def concat_md_chunks(chunks, sep="\n\n"):
     return sep.join(chunks)
+
+
+def get_modified_files(repo_path: Path, since_days: int=14, extension: str=".md"):
+    """
+    Get a list of modified files in the last `since_days` days.
+    """
+    path = Path(repo_path).resolve().absolute()
+    if not path.is_dir():
+        path = path.parent
+    logging.info(f"Searching for modified files in the last {since_days} days in: {path}")
+    # Open the repository
+    repo = git.Repo(repo_path, search_parent_directories=True)
+    repo_path = Path(repo.git_dir).parent # this is the .git file
+
+    logging.info(f"Repo: {repo.git_dir}")
+    # Calculate the date since which to look for commits
+    since_date = datetime.now() - timedelta(days=since_days)
+
+    # Get commits since the specified date
+    commits = list(repo.iter_commits(since=since_date.isoformat()))
+
+    # Use a set to store unique modified files
+    modified_files = set()
+
+    # Iterate over the commits and collect modified files
+    for commit in commits:
+        for diff in commit.diff(None, create_patch=False):
+            if diff.a_path:
+                modified_files.add(repo_path / Path(diff.a_path))
+            if diff.b_path:
+                modified_files.add(repo_path / Path(diff.b_path))
+    modified_files = list([m for m in modified_files if m.suffix == extension and m.is_relative_to(path)])
+    modified_files = [f.relative_to(repo_path) for f in modified_files]
+    logging.info(f"Found {len(modified_files)} modified files in the last {since_days} days in: {repo_path}")
+    return modified_files
