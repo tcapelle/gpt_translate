@@ -1,4 +1,5 @@
 [![PyPI version](https://badge.fury.io/py/gpt_translate.svg)](https://badge.fury.io/py/gpt_translate)
+[![Weave](https://raw.githubusercontent.com/wandb/weave/master/docs/static/img/logo.svg)](https://wandb.ai/capecape/gpt-translate/weave/)
 
 # gpt_translate: Translating MD files with GPT-4
 This is a tool to translate the language in Markdown files.
@@ -120,7 +121,7 @@ Play with this prompt and maybe you can find better ways to evaluate the quality
 
 ## Weave Tracing
 
-The library does a lot! keepins track of every piece of interaction is necessary. We added [W&B Weave](wandb.me/weave) support to trace every call to the model and underlying processing bits.
+The library does a lot! keeping track of every piece of interaction is necessary. We added [W&B Weave](wandb.me/weave) support to trace every call to the model and underlying processing bits.
 
 You can pass a project name to the CLI to trace the calls:
 
