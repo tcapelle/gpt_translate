@@ -44,6 +44,7 @@ def validate_headers(original_page: MDPage, translated_page: MDPage):
         "imports_match": imports_match,
     }
 
+
 def _validate_tabs_format(content: str) -> bool:
     tab_pattern = re.compile(
         r"""

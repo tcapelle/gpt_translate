@@ -207,7 +207,9 @@ class Translator(weave.Object):
             md_page.content, self.prompt_template, **self.model_args
         )
         logging.debug(f"Translated content: {translated_content}")
-        if md_page.header.description and self.do_translate_header_description: # check if header contains a description
+        if (
+            md_page.header.description and self.do_translate_header_description
+        ):  # check if header contains a description
             translated_header_description = await self.translate_header_description(
                 md_page
             )
@@ -343,7 +345,9 @@ async def _translate_files(
         if Path(input_files).suffix == ".txt":
             logging.info(f"Reading {input_files}")
         input_files = Path(input_files).read_text().splitlines()
-    input_files = [Path(f) for f in input_files if (Path(f).suffix == ".md" and Path(f).exists())]
+    input_files = [
+        Path(f) for f in input_files if (Path(f).suffix == ".md" and Path(f).exists())
+    ]
     logging.info(
         f"Translating {len(input_files)} file" + ("s" if len(input_files) > 1 else "")
     )

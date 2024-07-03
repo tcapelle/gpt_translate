@@ -27,6 +27,7 @@ def test_validate_tabs_format_invalid():
     """
     assert _validate_tabs_format(content) == False
 
+
 def test_validate_tabs_format_with_random_text():
     content = """
     Some random text before the tabs.

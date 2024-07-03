@@ -73,6 +73,7 @@ def extract_markdown_links(filename, content):
             links.append(MDLink(title, target, filename, i + 1))
     return links
 
+
 @dataclass
 class Header:
     title: Optional[str] = None

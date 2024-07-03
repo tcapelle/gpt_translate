@@ -198,6 +198,7 @@ displayed_sidebar: default
 
 def test_header_class():
     "Empty header"
-    h = Header(title=None, description=None, slug=None, displayed_sidebar=None, imports=None)
+    h = Header(
+        title=None, description=None, slug=None, displayed_sidebar=None, imports=None
+    )
     assert str(h) == ""
-

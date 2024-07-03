@@ -8,6 +8,7 @@ from simple_parsing.helpers import Serializable
 
 DEFAULT_CONFIG_PATH = "./configs/config.yaml"
 
+
 @dataclass
 class Config(Serializable):
     model: str  # Model to use
@@ -30,7 +31,7 @@ class Config(Serializable):
     out_file: str  # File to save the translated file to
     input_folder: str  # Folder to translate
     out_folder: str  # Folder to save the translated files to
-    limit: int = None # Limit number of files to translate
+    limit: int = None  # Limit number of files to translate
 
 
 def setup_parsing(args):
@@ -42,7 +43,12 @@ def setup_parsing(args):
     # parser.add_arguments(FilesConfig, dest="files")
     # parser.add_arguments(ModelConfig, dest="model")
 
-    config = simple_parsing.parse(config_path=DEFAULT_CONFIG_PATH, config_class=Config, args=args, add_config_path_arg=True)
+    config = simple_parsing.parse(
+        config_path=DEFAULT_CONFIG_PATH,
+        config_class=Config,
+        args=args,
+        add_config_path_arg=True,
+    )
     # logs_args: LogsConfig = args.logs
     # translation_args: TranslationConfig = args.translation
     # file_args: FilesConfig = args.files

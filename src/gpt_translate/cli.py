@@ -42,9 +42,7 @@ def translate_file(args=None):
         silence_openai=config.silence_openai,
         weave_project=config.weave_project,
     )
-    logging.info(
-        f"{config.dumps_yaml()}"
-    )
+    logging.info(f"{config.dumps_yaml()}")
     asyncio.run(
         _translate_file(
             input_file=config.input_file,
@@ -55,7 +53,11 @@ def translate_file(args=None):
             remove_comments=config.remove_comments,
             do_evaluation=config.do_evaluation,
             do_translate_header_description=config.do_translate_header_description,
-            model_args={"model": config.model, "temperature": config.temperature, "max_tokens": config.max_tokens},
+            model_args={
+                "model": config.model,
+                "temperature": config.temperature,
+                "max_tokens": config.max_tokens,
+            },
         )
     )
 
@@ -67,9 +69,7 @@ def translate_files(args=None):
         silence_openai=config.silence_openai,
         weave_project=config.weave_project,
     )
-    logging.info(
-        f"{config.dumps_yaml()}"
-    )
+    logging.info(f"{config.dumps_yaml()}")
     asyncio.run(
         _translate_files(
             input_files=config.input_file,
@@ -82,7 +82,11 @@ def translate_files(args=None):
             do_evaluation=config.do_evaluation,
             do_translate_header_description=config.do_translate_header_description,
             max_openai_concurrent_calls=config.max_openai_concurrent_calls,
-            model_args={"model": config.model, "temperature": config.temperature, "max_tokens": config.max_tokens},
+            model_args={
+                "model": config.model,
+                "temperature": config.temperature,
+                "max_tokens": config.max_tokens,
+            },
         )
     )
 
@@ -94,9 +98,7 @@ def translate_folder(args=None):
         silence_openai=config.silence_openai,
         weave_project=config.weave_project,
     )
-    logging.info(
-        f"{config.dumps_yaml()}"
-    )
+    logging.info(f"{config.dumps_yaml()}")
     input_files = get_md_files(config.input_folder)[: config.limit]
     asyncio.run(
         _translate_files(
@@ -110,7 +112,11 @@ def translate_folder(args=None):
             do_evaluation=config.do_evaluation,
             do_translate_header_description=config.do_translate_header_description,
             max_openai_concurrent_calls=config.max_openai_concurrent_calls,
-            model_args={"model": config.model, "temperature": config.temperature, "max_tokens": config.max_tokens},
+            model_args={
+                "model": config.model,
+                "temperature": config.temperature,
+                "max_tokens": config.max_tokens,
+            },
         )
     )
 
@@ -126,6 +132,7 @@ def copy_images(args=None):
     print(args)
     _copy_images(args.src_path, args.dst_path)
 
+
 @dataclass
 class NewFilesArgs:
     repo: Path
@@ -133,14 +140,13 @@ class NewFilesArgs:
     since_days: int = 14
     out_file: Path = "./changed_files.txt"
 
+
 def new_files(args=None):
     args = simple_parsing.parse(NewFilesArgs)
     print(args)
     setup_logging(debug=False)
     modified_files = get_modified_files(
-        repo_path=args.repo, 
-        extension=args.extension, 
-        since_days=args.since_days
+        repo_path=args.repo, extension=args.extension, since_days=args.since_days
     )
     with open(args.out_file, "w") as f:
         for file in modified_files:
