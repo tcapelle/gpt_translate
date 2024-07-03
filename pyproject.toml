@@ -39,3 +39,5 @@ homepage = "https://github.com/tcapelle/gpt_translate"
 "gpt_translate.files" = "gpt_translate.cli:translate_files"
 "gpt_translate.folder" = "gpt_translate.cli:translate_folder"
 "gpt_translate.copy_images" = "gpt_translate.cli:copy_images"
+"gpt_translate.new_files" = "gpt_translate.cli:new_files"
+
