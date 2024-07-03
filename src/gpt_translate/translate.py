@@ -100,6 +100,7 @@ class Translator(weave.Object):
     config_folder: Path
     language: str = "ja"
     do_evaluation: bool = True
+    translate_header_description: bool = True
     model_args: dict = dict(model="gpt-4o", temperature=1.0)
     evaluation_prompt: Optional[str] = Field(default=None)
     prompt_template: PromptTemplate = Field(default=None)
@@ -206,7 +207,7 @@ class Translator(weave.Object):
             md_page.content, self.prompt_template, **self.model_args
         )
         logging.debug(f"Translated content: {translated_content}")
-        if md_page.header.description:
+        if md_page.header.description and self.translate_header_description: # check if header contains a description
             translated_header_description = await self.translate_header_description(
                 md_page
             )
@@ -285,6 +286,7 @@ async def _translate_file(
     config_folder: str = "./configs",  # Config folder
     remove_comments: bool = REMOVE_COMMENTS,  # Remove comments
     do_evaluation: bool = True,  # Evaluate the translated file
+    translate_header_description: bool = True,  # Translate the header description
     model_args: dict = dict(model="gpt-4o", temperature=1.0),  # model args
 ) -> MDPage:
     """Translate a markdown file asynchronously"""
@@ -304,6 +306,7 @@ async def _translate_file(
                 config_folder=config_folder,
                 language=language,
                 do_evaluation=do_evaluation,
+                translate_header_description=translate_header_description,
                 model_args=model_args,
             )
             translation_results = await translator.translate_file(
