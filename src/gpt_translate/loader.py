@@ -12,7 +12,7 @@ def remove_markdown_comments(content):
     comment_pattern = re.compile(r"<!--.*?-->", re.DOTALL)
 
     # Remove all matched comment blocks
-    cleaned_content = re.sub(comment_pattern, "", content)
+    cleaned_content = re.sub(comment_pattern, "\n", content)
 
     return cleaned_content
 
