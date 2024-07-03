@@ -35,78 +35,79 @@ def setup_logging(debug=False, silence_openai=True, weave_project=None):
 
 
 def translate_file(args=None):
-    logs_args, translation_args, file_args, model_args = setup_parsing(args=args)
+    # logs_args, translation_args, file_args, model_args = setup_parsing(args=args)
+    config = setup_parsing(args=args)
     setup_logging(
-        logs_args.debug,
-        silence_openai=logs_args.silence_openai,
-        weave_project=logs_args.weave_project,
+        config.debug,
+        silence_openai=config.silence_openai,
+        weave_project=config.weave_project,
     )
     logging.info(
-        f"{logs_args.dumps_yaml()}\n{translation_args.dumps_yaml()}\n{file_args.dumps_yaml()}\n{model_args.dumps_yaml()}"
+        f"{config.dumps_yaml()}"
     )
     asyncio.run(
         _translate_file(
-            input_file=file_args.input_file,
-            out_file=file_args.out_file,
-            replace=translation_args.replace,
-            language=translation_args.language,
-            config_folder=translation_args.config_folder,
-            remove_comments=translation_args.remove_comments,
-            do_evaluation=translation_args.do_evaluation,
-            model_args=asdict(model_args),
+            input_file=config.input_file,
+            out_file=config.out_file,
+            replace=config.replace,
+            language=config.language,
+            config_folder=config.config_folder,
+            remove_comments=config.remove_comments,
+            do_evaluation=config.do_evaluation,
+            model_args={"model": config.model, "temperature": config.temperature, "max_tokens": config.max_tokens},
         )
     )
 
 
 def translate_files(args=None):
-    logs_args, translation_args, file_args, model_args = setup_parsing(args=args)
+    config = setup_parsing(args=args)
     setup_logging(
-        logs_args.debug,
-        silence_openai=logs_args.silence_openai,
-        weave_project=logs_args.weave_project,
+        config.debug,
+        silence_openai=config.silence_openai,
+        weave_project=config.weave_project,
     )
     logging.info(
-        f"{logs_args.dumps_yaml()}\n{translation_args.dumps_yaml()}\n{file_args.dumps_yaml()}\n{model_args.dumps_yaml()}"
+        f"{config.dumps_yaml()}"
     )
     asyncio.run(
         _translate_files(
-            input_files=file_args.input_file,
-            input_folder=file_args.input_folder,
-            out_folder=file_args.out_folder,
-            replace=translation_args.replace,
-            language=translation_args.language,
-            config_folder=translation_args.config_folder,
-            remove_comments=translation_args.remove_comments,
-            do_evaluation=translation_args.do_evaluation,
-            max_openai_concurrent_calls=translation_args.max_openai_concurrent_calls,
-            model_args=asdict(model_args),
+            input_files=config.input_file,
+            input_folder=config.input_folder,
+            out_folder=config.out_folder,
+            replace=config.replace,
+            language=config.language,
+            config_folder=config.config_folder,
+            remove_comments=config.remove_comments,
+            do_evaluation=config.do_evaluation,
+            max_openai_concurrent_calls=config.max_openai_concurrent_calls,
+            model_args={"model": config.model, "temperature": config.temperature, "max_tokens": config.max_tokens},
         )
     )
 
 
 def translate_folder(args=None):
-    logs_args, translation_args, file_args, model_args = setup_parsing(args=args)
+    config = setup_parsing(args=args)
     setup_logging(
-        logs_args.debug,
-        silence_openai=logs_args.silence_openai,
-        weave_project=logs_args.weave_project,
+        config.debug,
+        silence_openai=config.silence_openai,
+        weave_project=config.weave_project,
     )
     logging.info(
-        f"{logs_args.dumps_yaml()}\n{translation_args.dumps_yaml()}\n{file_args.dumps_yaml()}\n{model_args.dumps_yaml()}"
+        f"{config.dumps_yaml()}"
     )
-    input_files = get_md_files(file_args.input_folder)[: file_args.limit]
+    input_files = get_md_files(config.input_folder)[: config.limit]
     asyncio.run(
         _translate_files(
             input_files=input_files,
-            input_folder=file_args.input_folder,
-            out_folder=file_args.out_folder,
-            replace=translation_args.replace,
-            language=translation_args.language,
-            config_folder=translation_args.config_folder,
-            remove_comments=translation_args.remove_comments,
-            do_evaluation=translation_args.do_evaluation,
-            max_openai_concurrent_calls=translation_args.max_openai_concurrent_calls,
-            model_args=asdict(model_args),
+            input_folder=config.input_folder,
+            out_folder=config.out_folder,
+            replace=config.replace,
+            language=config.language,
+            config_folder=config.config_folder,
+            remove_comments=config.remove_comments,
+            do_evaluation=config.do_evaluation,
+            max_openai_concurrent_calls=config.max_openai_concurrent_calls,
+            model_args={"model": config.model, "temperature": config.temperature, "max_tokens": config.max_tokens},
         )
     )
 
