@@ -335,8 +335,9 @@ async def _translate_files(
     max_openai_concurrent_calls: int = MAX_OPENAI_CONCURRENT_CALLS,  # Maximum number of concurrent calls to OpenAI
 ):
     # let's make input_files support a txt file with a list of files
-    if Path(input_files).suffix == ".txt":
-        logging.info(f"Reading {input_files}")
+    if not isinstance(input_files, list):
+        if Path(input_files).suffix == ".txt":
+            logging.info(f"Reading {input_files}")
         input_files = Path(input_files).read_text().splitlines()
     input_files = [Path(f) for f in input_files if (Path(f).suffix == ".md" and Path(f).exists())]
     logging.info(
