@@ -29,8 +29,8 @@ class Config(Serializable):
 
     input_file: str  # File to translate, can be a .txt file with a list of files when used with translate.files
     out_file: str  # File to save the translated file to
-    input_folder: str  # Folder to translate
-    out_folder: str  # Folder to save the translated files to
+    input_folder: str = "./docs/"  # Folder to translate
+    out_folder: str = "./docs_translated/"  # Folder to save the translated files to
     limit: int = None  # Limit number of files to translate
 
 
