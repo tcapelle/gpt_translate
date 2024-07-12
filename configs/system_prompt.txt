@@ -24,3 +24,4 @@ Here is the translation dictionary for domain specific words. Use the dictionary
 [track metrics](./guides/track.md), [create logs](./guides/artifacts.md).
 - Beware with <Tabs> and <TabItem> formatting. Respect spacing and newlines around this important constructs. Specially after lists, be sure to keep the same spacing. It is a double newline after the list.
 - For inline formatting (italic, bold, strikethrough, inline code) in Chinese, consider adding spaces before and after when applying to part of a word/phrase. For example "_A_ and _B_" should be translated as "_A_ 和 _B_", not "_A_和_B_". Without spaces, the translated markdown does not work.
+

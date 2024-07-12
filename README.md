@@ -34,6 +34,11 @@ The library provides a set of commands that you can access as CLI. All the comma
 - `gpt_translate.folder`: Translate a folder recursively
 - `gpt_translate.files`: Translate a list of files, accepts `.txt` list of files as input.
 
+Export your OpenAI API key:
+
+```bash
+export OPENAI_API_KEY=aa-proj-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+```
 
 We use GPT4 by default. You can change this on `configs/config.yaml`. The dafault values are:
 
