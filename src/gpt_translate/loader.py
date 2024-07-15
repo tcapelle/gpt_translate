@@ -1,27 +1,31 @@
 import re, yaml
 import logging
-from pathlib import Path
-from dataclasses import dataclass, asdict, field
+from typing import Optional
+from dataclasses import dataclass, asdict
+
+import weave
+from pydantic import model_validator, Field
+
 
 def remove_markdown_comments(content):
     # Pattern to match HTML comment blocks
-    comment_pattern = re.compile(r'<!--.*?-->', re.DOTALL)
+    comment_pattern = re.compile(r"<!--.*?-->", re.DOTALL)
 
     # Remove all matched comment blocks
-    cleaned_content = re.sub(comment_pattern, '', content)
+    cleaned_content = re.sub(comment_pattern, "\n", content)
 
     return cleaned_content
 
 
 def split_markdown(content):
-    header_pattern = re.compile(r'^(#{1,6} .+)$', re.MULTILINE)
-    code_block_pattern = re.compile(r'^```')
+    header_pattern = re.compile(r"^(#{1,6} .+)$", re.MULTILINE)
+    code_block_pattern = re.compile(r"^```")
 
     chunks = []
     current_chunk = []
     in_code_block = False
 
-    for line in content.split('\n'):
+    for line in content.split("\n"):
         if code_block_pattern.match(line):
             in_code_block = not in_code_block
 
@@ -29,7 +33,7 @@ def split_markdown(content):
         if header_pattern.match(line) and not in_code_block:
             if current_chunk:
                 # Add the current chunk to chunks
-                chunks.append('\n'.join(current_chunk).strip())
+                chunks.append("\n".join(current_chunk).strip())
                 current_chunk = [line]
                 in_code_block = False
             else:
@@ -39,38 +43,44 @@ def split_markdown(content):
 
     # Add the last chunk if not empty
     if current_chunk:
-        chunks.append('\n'.join(current_chunk).strip())
+        chunks.append("\n".join(current_chunk).strip())
 
     return chunks
+
+
 @dataclass
-class MDLlink:
+class MDLink:
     title: str
     target: str
+    filename: str
     line_number: str
 
     def __str__(self):
-        return f"{self.line_number:>4}: [{self.title}]({self.target})"
-    
+        return f"{self.filename}:{self.line_number:>4}: [{self.title}]({self.target})"
+
     def __eq__(self, other):
+        "We only care to know if the link is still pointing to the same place"
         return self.target == other.target
 
-def extract_markdown_links(content):
+
+def extract_markdown_links(filename, content):
     # This regular expression matches the Markdown link syntax
-    link_pattern = r'\[([^\]]+)\]\(([^)]+)\)'
+    link_pattern = r"\[([^\]]+)\]\(([^)]+)\)"
     links = []
     for i, line in enumerate(content.split("\n")):
         matches = re.findall(link_pattern, line)
         for title, target in matches:
-            links.append(MDLlink(title, target, i+1))
+            links.append(MDLink(title, target, filename, i + 1))
     return links
+
 
 @dataclass
 class Header:
-    title: str = ""
-    description: str = ""
-    slug: str = ""
-    displayed_sidebar: str = ""
-    imports: str = ""
+    title: Optional[str] = None
+    description: Optional[str] = None
+    slug: Optional[str] = None
+    displayed_sidebar: Optional[str] = None
+    imports: Optional[str] = None
 
     @classmethod
     def from_string(cls, input_string: str):
@@ -82,7 +92,7 @@ class Header:
         yaml_lines = []
         yaml_start = False
         for line in lines:
-            if line.strip() == '---':
+            if line.strip() == "---":
                 yaml_start = not yaml_start
                 continue
             if yaml_start:
@@ -91,86 +101,141 @@ class Header:
                 import_lines.append(line)
 
         # Parse the YAML content
-        attributes = yaml.safe_load("\n".join(yaml_lines))
+        attributes = yaml.safe_load("\n".join(yaml_lines)) or {}
         # Rejoin the import lines into a single string
         imports = "\n".join(import_lines).strip()
         if not attributes and not imports:
-            return ""
+            return cls()
         return cls(**attributes, imports=imports)
-    
+
     def __repr__(self) -> str:
         return str(self)
-    
+
     def __str__(self) -> str:
-        # Convert the dataclass fields to a dictionary, then to a YAML-formatted string
-        # Exclude the 'imports' field for the YAML content
+        parts = []
         attrs = {k: v for k, v in asdict(self).items() if v and k != "imports"}
-        yaml_content = yaml.safe_dump(attrs, sort_keys=False)
-        # Include the imports at the beginning if any
-        import_content = f"{self.imports}\n" if self.imports else ""
-        return f"---\n{yaml_content}---\n{import_content}"
+        # sort by key
+        if attrs:
+            attr_parts = ""
+            attr_parts += "---\n"
+            for key, value in attrs.items():
+                # let's handle if value is a multiline string by removing the line breaks
+                if isinstance(value, str):
+                    value = value.strip().replace("\n", " ")
+                attr_parts += f"{key}: {value}\n"
+            attr_parts += "---"
+            parts.append(attr_parts)
+        if self.imports:
+            parts.append(self.imports)
+        header = "\n".join(parts).encode("utf-8").decode("utf-8")
+        return header
 
-def extract_header(content):
-    "Extract header from a markdown file, everything before the title and the rest of the content"
-    header = ""
-    for line in content.split("\n"):
-        if line.startswith("# "):
+
+@weave.op
+def extract_header(content: str) -> dict:
+    "Extract header from a markdown file, including YAML frontmatter and imports"
+    lines = content.split("\n")
+    frontmatter = []
+    imports = []
+    content_lines = []
+    in_frontmatter = False
+
+    # Extract frontmatter
+    for line in lines:
+        if line.strip() == "---":
+            if not in_frontmatter:
+                in_frontmatter = True
+                frontmatter.append(line)
+            else:
+                frontmatter.append(line)
+                break
+        elif in_frontmatter:
+            frontmatter.append(line)
+        else:
             break
-        header += line + "\n"
-    return header, content[len(header):]
 
-@dataclass
-class MDPage:
-    title: str = "Title"
-    raw_content: str = "Content"
-    header: str = "Header"
-    links: list[MDLlink] = None
-    content: str = field(init=False)
-    
-    def __post_init__(self):
-        header, self.content = extract_header(self.raw_content)
-        self.header = Header.from_string(header)
-        self.links = self.find_links()
-    
+    # Extract imports and content
+    remaining_lines = lines[len(frontmatter) :]
+    for line in remaining_lines:
+        if line.strip().startswith("import "):
+            imports.append(line)
+        else:
+            content_lines = remaining_lines[len(imports) :]
+            break
+
+    # Combine frontmatter and imports for header
+    header_lines = frontmatter + imports
+
+    # Remove trailing empty lines from header
+    while header_lines and not header_lines[-1].strip():
+        header_lines.pop()
+
+    header = "\n".join(header_lines).rstrip()
+    content = "\n".join(content_lines).strip()
+
+    return {"header": header, "content": content}
+
+
+@weave.op
+def find_links(raw_content: str, filename: str) -> list[MDLink]:
+    """
+    Finds all Markdown links in the content.
+    :return: list of tuples, each containing (link text, URL).
+    """
+    link_pattern = r"\[([^\]]+)\]\(([^)]+)\)"
+    links = []
+    for i, line in enumerate(raw_content.split("\n")):
+        matches = re.findall(link_pattern, line)
+        for title, target in matches:
+            links.append(MDLink(title, target, filename, i + 1))
+    return links
+
+
+class MDPage(weave.Object):
+    filename: str
+    content: str
+    header: Header
+    links: list[MDLink] = Field(default=None)
+
+    @model_validator(mode="after")
+    def set_links(self):
+        self.links = find_links(self.content, self.filename)
+        return self
+
     @classmethod
-    def create(cls, title, md_content):
-        return cls(title=title, raw_content=md_content)
+    def from_raw_content(cls, filename: str, raw_content: str) -> "MDPage":
+        extracted = extract_header(raw_content)
+        header = extracted["header"]
+        content = extracted["content"]
+        header = Header.from_string(header)
+        return cls(
+            filename=filename,
+            content=content,
+            header=header,
+        )
 
-    def from_translated(self, translated_content, fix_links=True):
-        translated_page = MDPage.create(self.title, f"{self.header}\n{translated_content}")
-        if fix_links:
-            translated_page.update_links(self.links)
-        return translated_page
-
-    def find_links(self):
-        """
-        Finds all Markdown links in the content.
-        :return: list of tuples, each containing (link text, URL).
-        """
-        link_pattern = r'\[([^\]]+)\]\(([^)]+)\)'
-        links = []
-        for i, line in enumerate(self.raw_content.split("\n")):
-            matches = re.findall(link_pattern, line)
-            for title, target in matches:
-                links.append(MDLlink(title, target, i+1))
-        return links
-    
-    def update_links(self, new_links, targets_only=True):
+    @weave.op
+    def update_links(self, new_links: list[MDLink], targets_only=True) -> None:
         "Update the links in the content"
         if len(new_links) == len(self.links):
-            logging.error(f"The following links don't match: {new_links} vs {self.links}")
-            raise ValueError(f"Number of links don't match: {len(new_links)} vs {len(self.links)}")
-        logging.debug(f"Maybe updating links in {self.title}")
+            logging.error(
+                f"The following links don't match: {new_links} vs {self.links}"
+            )
+            raise ValueError(
+                f"Number of links don't match: {len(new_links)} vs {len(self.links)}"
+            )
+        logging.debug(f"Maybe updating links in {self.filename}")
         for old_link, new_link in zip(self.links, new_links):
             if old_link.target != new_link.target:
                 logging.debug(f"Replacing {old_link} with {new_link}")
                 self.content = self.content.replace(old_link.target, new_link.target)
         if targets_only:
-            self.links = self.find_links()
+            self.links = self.find_links(self.content)
         else:
             self.links = new_links
-    
+
     def __str__(self):
         "Concatenate header and content"
-        return f"{self.header}\n{self.content}"
-        
+        if str(self.header).strip():
+            return f"{self.header}\n\n{self.content}"
+        return str(self.content)

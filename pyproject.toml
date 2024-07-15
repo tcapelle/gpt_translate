@@ -27,12 +27,17 @@ dependencies = [
     "tiktoken>=0.5",
     "tenacity>=8.2.3",
     "fastcore>=1.5.29",
+    "weave>=0.50.3",
+    "tqdm>=4.66.4",
 ]
 
 [project.urls]
 homepage = "https://github.com/tcapelle/gpt_translate"
 
 [project.scripts]
-"gpt_translate.file" = "gpt_translate.translate:translate_file"
-"gpt_translate.files" = "gpt_translate.translate:translate_files"
-"gpt_translate.folder" = "gpt_translate.translate:translate_folder"
+"gpt_translate.file" = "gpt_translate.cli:translate_file"
+"gpt_translate.files" = "gpt_translate.cli:translate_files"
+"gpt_translate.folder" = "gpt_translate.cli:translate_folder"
+"gpt_translate.copy_images" = "gpt_translate.cli:copy_images"
+"gpt_translate.new_files" = "gpt_translate.cli:new_files"
+
