@@ -2,12 +2,15 @@ StarRocks: StarRocks
 starrocks: starrocks
 Data loading: 数据导入
 Data unloading: 数据导出
-native table : 原生表 
-lake table: 存算分离表
-external table: 外表
-external table: 外部表
-external MV: 外表MV
-Hive external table: Hive外表
+load: 导入
+native table : 内表 
+Cloud-native table: 存算分离表
+External Table: 外部表
+File External Table: 文件外部表
+external catalog: External Catalog
+catalog: Catalog
+Default Catalog: Default Catalog
+Hive external table: Hive 外表
 hierarchy of data objects: 数据库模式层次结构
 storage layering: 存储分层
 separation of storage and compute : 存算分离 
@@ -20,7 +23,11 @@ native vectorized engine : 原生向量化引擎
 query federation/federated query : 联邦查询 
 columnar storage : 列式存储 
 row storage: 行存储
-leader FE: 主 FE 
+Leader FE: Leader FE 
+Follower FE: Follower FE
+Observer FE: Observer FE
+FEs: FE
+BEs: BE
 intelligent materialized view : 智能物化视图 
 base table : 基表 
 materialized view: 物化视图
@@ -37,10 +44,10 @@ star schema : 星形模型
 snowflake schema : 雪花模型 
 point query : 点查询 
 table type: 表模型
-Duplicate Key table: 明细模型表
-Aggregate table: 聚合模型表
-Primary Key table: 主键模型表
-Unique Key table: 更新模型表
+Duplicate Key table: 明细表
+Aggregate table: 聚合表
+Primary Key table: 主键表
+Unique Key table: 更新表
 data cleaning : 数据清洗 
 global dictionary : 全局字典 
 global dictionary for low-cardinality optimization : 全局低基数字典优化 
@@ -71,7 +78,7 @@ dynamic partitioning: 动态分区
 expresion partitioning: 表达式分区
 list partitioning: LIST 分区
 replica : 副本 
-tablet : 分片 
+tablet : Tablet
 user profiling : 用户画像 
 user retention : 用户留存 
 precision marketing : 精准营销 
@@ -134,3 +141,28 @@ conditional update: 条件更新
 higher-order function: 高阶函数
 async refresh: 异步刷新
 query acceleration: 查询加速
+Operator: Operator
+segment file: Segment 文件
+Hybrid row-column storage: 行列混存
+Data Cache: Data Cache
+Query Cache: Query Cache
+Delete Vector: Delete Vector
+Compaction: Compaction'
+List Partitioning: List 分区
+Range Partitioning: Range 分区
+Bitmap index: Bitmap 索引
+Bloom filter index: Bloom filter 索引
+Stream Load: Stream Load
+Broker Load: Broker Load
+Routine Load: Routine Load
+Spark Load: Spark Load
+schema change: Schema Change
+Colocate Join: Colocate Join
+Lateral Join: Lateral Join
+Shuffle Join: Shuffle Join
+Broadcast Join: Broadcast Join
+Colocation Group: Colocation Group
+Sorted streaming aggregate: Sorted streaming aggregate
+Flat JSON: Flat JSON
+Query Profile: Query Profile
+Information Schema: Information Schema
