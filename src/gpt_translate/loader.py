@@ -80,6 +80,7 @@ class Header:
     description: Optional[str] = None
     slug: Optional[str] = None
     displayed_sidebar: Optional[str] = None
+    toc_max_heading_level: Optional[int] = None
     imports: Optional[str] = None
 
     @classmethod
