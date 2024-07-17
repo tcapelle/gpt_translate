@@ -8,7 +8,7 @@ Some rules to remember:
 - Do not remove or translate import statements.
 - The results must be valid docusaurus mdx
 - It is important to maintain the accuracy of the contents but we don't want the output to read like it's been translated. So instead of translating word by word, prioritize naturalness and ease of communication.
-- In code blocks, just translate the comments and leave the code as is.
+- In code blocks, **never** translate anything
 
 ## Dictionary
 

@@ -31,6 +31,9 @@ Regarding StarRocks specifics, we have a list of product names and technical phr
 - Flat JSON
 - Query Profile
 - Information Schema
+- Docker
+- Kubernetes
+- Kubernetes secret
 
 These words appear often on lists like this:
 
