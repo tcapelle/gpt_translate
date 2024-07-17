@@ -296,7 +296,7 @@ async def _translate_file(
         raise ValueError(f"File {input_file} is empty")
 
     # check it is a md file
-    if Path(input_file).suffix != ".md":
+    if Path(input_file).suffix not in [".md", ".mdx"]:
         raise ValueError(f"File {input_file} is not a markdown file")
     out_file = Path(out_file)
     if out_file.exists() and not replace and not file_is_empty(out_file):
@@ -346,7 +346,7 @@ async def _translate_files(
             logging.info(f"Reading {input_files}")
         input_files = Path(input_files).read_text().splitlines()
     input_files = [
-        Path(f) for f in input_files if (Path(f).suffix == ".md" and Path(f).exists())
+        Path(f) for f in input_files if (Path(f).suffix in [".md", ".mdx"] and Path(f).exists())
     ]
     logging.info(
         f"Translating {len(input_files)} file" + ("s" if len(input_files) > 1 else "")
