@@ -1,5 +1,3 @@
-StarRocks: StarRocks
-starrocks: starrocks
 Data loading: 数据导入
 Data unloading: 数据导出
 load: 导入
@@ -7,9 +5,6 @@ native table: 内表
 Cloud-native table: 存算分离表
 External Table: 外部表
 File External Table: 文件外部表
-external catalog: External Catalog
-catalog: Catalog
-Default Catalog: Default Catalog
 Hive external table: Hive 外表
 hierarchy of data objects: 数据库模式层次结构
 storage layering: 存储分层
@@ -23,11 +18,6 @@ native vectorized engine: 原生向量化引擎
 query federation/federated query: 联邦查询 
 columnar storage: 列式存储 
 row storage: 行存储
-Leader FE: Leader FE 
-Follower FE: Follower FE
-Observer FE: Observer FE
-FEs: FE
-BEs: BE
 intelligent materialized view: 智能物化视图 
 base table: 基表 
 materialized view: 物化视图
@@ -78,7 +68,6 @@ dynamic partitioning: 动态分区
 expresion partitioning: 表达式分区
 list partitioning: LIST 分区
 replica: 副本 
-tablet: Tablet
 user profiling: 用户画像 
 user retention: 用户留存 
 precision marketing: 精准营销 
@@ -106,7 +95,6 @@ rolling update: 滚动升级
 stratified search: 分层搜索 
 unified search: 统一搜索 
 populate a table: 给表添加数据 
-property enforcement: property enforcement
 working directory: 工作目录 
 compute node: 计算节点 
 compute engine: 计算引擎
@@ -141,28 +129,9 @@ conditional update: 条件更新
 higher-order function: 高阶函数
 async refresh: 异步刷新
 query acceleration: 查询加速
-Operator: Operator
 segment file: Segment 文件
 Hybrid row-column storage: 行列混存
-Data Cache: Data Cache
-Query Cache: Query Cache
-Delete Vector: Delete Vector
-Compaction: Compaction'
 List Partitioning: List 分区
 Range Partitioning: Range 分区
 Bitmap index: Bitmap 索引
 Bloom filter index: Bloom filter 索引
-Stream Load: Stream Load
-Broker Load: Broker Load
-Routine Load: Routine Load
-Spark Load: Spark Load
-schema change: Schema Change
-Colocate Join: Colocate Join
-Lateral Join: Lateral Join
-Shuffle Join: Shuffle Join
-Broadcast Join: Broadcast Join
-Colocation Group: Colocation Group
-Sorted streaming aggregate: Sorted streaming aggregate
-Flat JSON: Flat JSON
-Query Profile: Query Profile
-Information Schema: Information Schema
