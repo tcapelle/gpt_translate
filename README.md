@@ -49,7 +49,7 @@ configs/language_dicts/zh.yaml
 
 ### `config.yaml`
 
-The main change that I made to `config.yaml` was to `temperature`. I set this to `0.2` to reduce the "creativity" of GPT. This should increase the probability that our docs will be translated in the same way every time. In reviews of the output the "tone" of the translated test docs improved with lower `temperature`.
+The main change that I made to `config.yaml` was to `temperature`. I set this to `0.2` to reduce the "creativity" of GPT. This should increase the probability that our docs will be translated in the same way every time. In reviews of the output, the "tone" of the translated test docs improved with lower `temperature`.
 
 ### `human_prompt.txt`
 
