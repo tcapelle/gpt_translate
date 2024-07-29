@@ -17,6 +17,8 @@ Use at StarRocks:
 > Tip
 >
 > The first time that you run the command you will be asked to paste a credential from your Weights \& Biases account. Sign up and create the account. The Weave feature from W\&B is useful for understanding the impact of changes you make to the translation workflow.
+>
+> The API key will be available at https://wandb.ai/authorize after you create the account.
 
 - Clone this repo and change dir into it
 - Install gpt_translate
