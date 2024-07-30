@@ -37,7 +37,7 @@ runs:
     - name: Get changed files
       id: changed-files
       run: |
-        changed_files=$(git diff --name-only -r HEAD^1 HEAD | grep '\.md$' | xargs)
+        changed_files=$(git diff --name-only -r HEAD^1 HEAD | grep -E '\.(md|mdx)$' | xargs)
         if [ -z "$changed_files" ]; then
           echo "No changed Markdown files found."
           echo "changed_files=" >> $GITHUB_OUTPUT
