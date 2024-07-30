@@ -101,7 +101,6 @@ $ gpt_translate.folder \
   --input_folder docs \
   --out_folder docs_ja \
   --language ja
-$ gpt_translate.file --help
 ```
 
 If you don't know what to do, you can always do `--help` on any of the commands:
@@ -133,6 +132,11 @@ $ gpt_translate.folder \
 
 ![Weave Tracing](./assets/weave.png)
 
+## Github Action
+
+We supply a `action.yml` file to use this library in a Github Action. It is not much tested, but it should work.
+
+- You will need to setup your [Weights & Biases](https://wandb.ai/site) API key as a secret in your Github repository as `WANDB_API_KEY`.
 
 ## TroubleShooting
 

@@ -1,23 +1,25 @@
 name: 'Translate'
 description: 'Automatic translation using GPT'
 inputs:
-  folder-to-translate:  # id of input
+  folder-to-translate:
     description: 'Path to folder to translate'
     required: true
     default: 'docs/'
-  language:  # id of input
+  language:
     description: 'Language to translate to'
     required: true
     default: 'es'
   output-folder:
     description: "Output Folder"
     default: 'docs_translated/'
-  max-chunk-tokens:
-    description: "Max size of chunk to translate at once"
-    default: "1000"
   config-folder:
     description: "Config Folder"
     default: './configs'
+  weave-project:
+    description: "Weave project name"
+    required: false
+    default: 'my_docs_translation'
+
 outputs:
   translated-files:
     description: 'Translated files'
@@ -29,20 +31,24 @@ runs:
     - name: Get changed files
       id: changed-files
       run: |
-          echo "changed_files=$(git diff --name-only -r HEAD^1 HEAD | grep '\.md$' | xargs)" >> $GITHUB_OUTPUT
+        echo "changed_files=$(git diff --name-only -r HEAD^1 HEAD | grep '\.md$' | xargs)" >> $GITHUB_OUTPUT
       shell: bash
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         python -m pip install gpt-translate
       shell: bash
-    - name: translating files
+    - name: Create file list
       run: |
-        gpt_translate.files ${{ steps.changed-files.outputs.changed_files }} \
+        echo "${{ steps.changed-files.outputs.changed_files }}" | tr ' ' '\n' > files_to_translate.txt
+      shell: bash
+    - name: Translating files
+      run: |
+        gpt_translate.files files_to_translate.txt \
           --input_folder ${{ inputs.folder-to-translate }} \
           --out_folder ${{ inputs.output-folder }} \
           --language ${{ inputs.language }} \
-          --max_chunk_tokens ${{ inputs.max-chunk-tokens }} \
           --config_folder ${{ inputs.config-folder }} \
-          --replace
+          --replace \
+          --weave_project ${{ inputs.weave-project }}
       shell: bash
