@@ -138,7 +138,7 @@ $ gpt_translate.folder \
 
 ## Github Action
 
-We supply a `action.yml` file to use this library in a Github Action. It is not much tested, but it should work.
+We supply an [action.yml file](action.yml) to use this library in a Github Action. It is not much tested, but it should work.
 
 - You will need to setup your [Weights & Biases](https://wandb.ai/site) API key as a secret in your Github repository as `WANDB_API_KEY`.
 
