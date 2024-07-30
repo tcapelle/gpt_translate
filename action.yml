@@ -31,7 +31,7 @@ runs:
     - name: Get changed files
       id: changed-files
       run: |
-        echo "changed_files=$(git diff --name-only -r HEAD^1 HEAD | grep '\.md$' | xargs)" >> $GITHUB_OUTPUT
+        echo "changed_files=$(git diff --name-only -r HEAD^1 HEAD | grep '\.(md|mdx)$' | xargs)" >> $GITHUB_OUTPUT
       shell: bash
     - name: Install dependencies
       run: |
