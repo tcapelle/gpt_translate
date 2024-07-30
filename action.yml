@@ -19,6 +19,9 @@ inputs:
     description: "Weave project name"
     required: false
     default: 'my_docs_translation'
+  input-file:
+    description: "Input file"
+    required: false
 
 outputs:
   translated-files:
@@ -38,9 +41,15 @@ runs:
         python -m pip install --upgrade pip
         python -m pip install git+https://github.com/tcapelle/gpt_translate.git@action#egg=gpt_translate
       shell: bash
-    - name: Create file list
+    - name: Create file list or use input file
       run: |
-        echo "${{ steps.changed-files.outputs.changed_files }}" | tr ' ' '\n' > files_to_translate.txt
+        if [ -n "${{ inputs.input-file }}" ]; then
+          echo "Using provided input file: ${{ inputs.input-file }}"
+          cp "${{ inputs.input-file }}" files_to_translate.txt
+        else
+          echo "Creating file list from changed files"
+          echo "${{ steps.changed-files.outputs.changed_files }}" | tr ' ' '\n' > files_to_translate.txt
+        fi
       shell: bash
     - name: Translating files
       run: |
