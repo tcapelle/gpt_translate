@@ -80,6 +80,7 @@ $ gpt_translate.file \
   --input_file README.md \
   --out_file README_es_.md \
   --language es
+  --config_folder ./configs
 ```
 
 2. Translate a list of files from `list.txt`:
@@ -90,6 +91,7 @@ $ gpt_translate.files \
   --input_folder docs \ 
   --out_folder docs_ja \
   --language ja
+  --config_folder ./configs
 ```
 
 Note here that we need to pass and input and output folder. This is because we will be using the input folder to get the relative path and create the same folder structure in the output folder. This is tipically what you want for documentation websites that are organized in folders like `./docs`.
@@ -101,7 +103,7 @@ $ gpt_translate.folder \
   --input_folder docs \
   --out_folder docs_ja \
   --language ja
-$ gpt_translate.file --help
+  --config_folder ./configs
 ```
 
 If you don't know what to do, you can always do `--help` on any of the commands:
@@ -129,10 +131,18 @@ $ gpt_translate.folder \
   --output_folder docs_ja \
   --language ja \
   --weave_project gpt-translate
+  --config_folder ./configs
 ```
 
 ![Weave Tracing](./assets/weave.png)
 
+## Github Action
+
+We supply an [action.yml file](action.yml) to use this library in a Github Action. It is not much tested, but it should work.
+
+- You will need to setup your [Weights & Biases](https://wandb.ai/site) API key as a secret in your Github repository as `WANDB_API_KEY`.
+
+An example workflow is shown in https://github.com/tcapelle/dummy_docs and the [corresponding workflow file](https://github.com/tcapelle/dummy_docs/blob/main/.github/workflows/main.yml)
 
 ## TroubleShooting
 

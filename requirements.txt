@@ -5,3 +5,4 @@ tiktoken
 wandb
 tqdm
 weave
+simple_parsing
