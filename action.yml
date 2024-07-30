@@ -1,5 +1,6 @@
 name: 'Translate'
 description: 'Automatic translation using GPT'
+
 inputs:
   folder-to-translate:
     description: 'Path to folder to translate'
@@ -20,13 +21,15 @@ inputs:
     required: false
     default: 'my_docs_translation'
   input-file:
-    description: "Input file"
+    description: "Input .txt file with list of files to translate"
     required: false
 
 outputs:
   translated-files:
     description: 'Translated files'
     value: ${{ steps.changed-files.outputs.changed_files }} 
+
+
 
 runs:
   using: "composite"
