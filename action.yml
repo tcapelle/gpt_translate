@@ -44,7 +44,8 @@ runs:
       shell: bash
     - name: Translating files
       run: |
-        gpt_translate.files files_to_translate.txt \
+        gpt_translate.files \
+          --input_file files_to_translate.txt \
           --input_folder ${{ inputs.folder-to-translate }} \
           --out_folder ${{ inputs.output-folder }} \
           --language ${{ inputs.language }} \

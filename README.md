@@ -80,6 +80,7 @@ $ gpt_translate.file \
   --input_file README.md \
   --out_file README_es_.md \
   --language es
+  --config_folder ./configs
 ```
 
 2. Translate a list of files from `list.txt`:
@@ -90,6 +91,7 @@ $ gpt_translate.files \
   --input_folder docs \ 
   --out_folder docs_ja \
   --language ja
+  --config_folder ./configs
 ```
 
 Note here that we need to pass and input and output folder. This is because we will be using the input folder to get the relative path and create the same folder structure in the output folder. This is tipically what you want for documentation websites that are organized in folders like `./docs`.
@@ -101,6 +103,7 @@ $ gpt_translate.folder \
   --input_folder docs \
   --out_folder docs_ja \
   --language ja
+  --config_folder ./configs
 ```
 
 If you don't know what to do, you can always do `--help` on any of the commands:
@@ -128,6 +131,7 @@ $ gpt_translate.folder \
   --output_folder docs_ja \
   --language ja \
   --weave_project gpt-translate
+  --config_folder ./configs
 ```
 
 ![Weave Tracing](./assets/weave.png)
