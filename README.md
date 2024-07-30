@@ -142,6 +142,8 @@ We supply a `action.yml` file to use this library in a Github Action. It is not 
 
 - You will need to setup your [Weights & Biases](https://wandb.ai/site) API key as a secret in your Github repository as `WANDB_API_KEY`.
 
+An example workflow is shown in https://github.com/tcapelle/dummy_docs and the [corresponding workflow file](https://github.com/tcapelle/dummy_docs/blob/main/.github/workflows/main.yml)
+
 ## TroubleShooting
 
 If you have any issue, you can always pass the `--debug` flag to get more information about what is happening:
