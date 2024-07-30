@@ -50,7 +50,7 @@ runs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        python -m pip install git+https://github.com/tcapelle/gpt_translate.git@action#egg=gpt_translate
+        python -m pip install gpt_translate
       shell: bash
     - name: Create file list or use input file
       run: |
