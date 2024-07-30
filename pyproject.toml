@@ -29,6 +29,7 @@ dependencies = [
     "fastcore>=1.5.29",
     "weave>=0.50.3",
     "tqdm>=4.66.4",
+    "simple_parsing>=0.1.5",
 ]
 
 [project.urls]
