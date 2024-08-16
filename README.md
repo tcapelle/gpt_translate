@@ -134,7 +134,7 @@ $ gpt_translate.folder \
   --config_folder ./configs
 ```
 
-![Weave Tracing](./assets/weave.png)
+![Weave Tracing](./assets/weave.gif)
 
 ## Github Action
 
