@@ -1,7 +1,5 @@
 # This file is in sync with the config.yaml file
 
-import shlex
-import logging
 from dataclasses import dataclass
 import simple_parsing
 from simple_parsing.helpers import Serializable
@@ -32,7 +30,7 @@ class Config(Serializable):
     out_folder: str = "./docs_translated/"  # Folder to save the translated files to
     limit: int = None  # Limit number of files to translate
 
-    eval_dataset: str = "Translation-ja:latest" # the Weave dataset name to evaluate
+    eval_dataset: str = "Translation-ja:latest"  # the Weave dataset name to evaluate
 
 
 def setup_parsing(args):

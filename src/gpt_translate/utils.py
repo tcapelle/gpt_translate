@@ -13,11 +13,12 @@ from fastcore.xtras import globtastic
 # Use the OpenAI API in async mode
 try:
     openai_client = AsyncOpenAI()
-except Exception as e:
+except Exception:
     logging.warning("Failed to initialize OpenAI client. Using a dummy client.")
     openai_client = None
 
 MODEL = "gpt-4"
+
 
 @weave.op
 async def longer_create(messages=None, max_tokens=4096, **kwargs):
@@ -50,6 +51,7 @@ async def longer_create(messages=None, max_tokens=4096, **kwargs):
         return process_tail["text"] + next_response
     else:
         return message_content
+
 
 @weave.op
 def remove_after(text, sep=["\n\n", "\n", ". ", ", "]):
@@ -178,9 +180,5 @@ def to_weave_dataset(name: str, rows: list) -> weave.Dataset:
                 result[k] = v.model_dump_json()
 
     # push to weave
-    dataset = weave.Dataset(
-        name=name, 
-        description="Translation files", 
-        rows = rows
-    )
+    dataset = weave.Dataset(name=name, description="Translation files", rows=rows)
     return dataset

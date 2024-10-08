@@ -1,6 +1,5 @@
 import logging
 import asyncio
-from typing import Optional
 from pathlib import Path
 from dataclasses import dataclass
 from tqdm.asyncio import tqdm
@@ -14,7 +13,12 @@ from gpt_translate.loader import (
     MDPage,
     Header,
 )
-from gpt_translate.utils import file_is_empty, count_tokens, longer_create, to_weave_dataset
+from gpt_translate.utils import (
+    file_is_empty,
+    count_tokens,
+    longer_create,
+    to_weave_dataset,
+)
 
 
 ## Globals
@@ -30,9 +34,7 @@ class TranslationResult:
 
 
 @weave.op
-async def translate_content(
-    md_content: str, prompt: PromptTemplate, **model_args
-):
+async def translate_content(md_content: str, prompt: PromptTemplate, **model_args):
     """Translate a markdown chunk asynchronously
     md_content: markdown content
     prompt: PromptTemplate object
@@ -86,8 +88,7 @@ class Translator(weave.Object):
             extra={"markup": True},
         )
         translated_page = await self.translate_page(md_page)
-        return {"original_page": md_page, 
-                "translated_page": translated_page}
+        return {"original_page": md_page, "translated_page": translated_page}
 
     @weave.op
     async def translate_page(self, md_page: MDPage, translate_header: bool = True):
@@ -199,7 +200,9 @@ async def _translate_files(
             logging.info(f"Reading {input_files}")
         input_files = Path(input_files).read_text().splitlines()
     input_files = [
-        Path(f) for f in input_files if (Path(f).suffix in [".md", ".mdx"] and Path(f).exists())
+        Path(f)
+        for f in input_files
+        if (Path(f).suffix in [".md", ".mdx"] and Path(f).exists())
     ]
     logging.info(
         f"Translating {len(input_files)} file" + ("s" if len(input_files) > 1 else "")
@@ -225,15 +228,20 @@ async def _translate_files(
                 do_translate_header_description=do_translate_header_description,
                 model_args=model_args,
             )
-            translation_results.update({"input_file": str(md_file), "output_file": str(out_file), "language": language})
+            translation_results.update(
+                {
+                    "input_file": str(md_file),
+                    "output_file": str(out_file),
+                    "language": language,
+                }
+            )
             return translation_results
+
     tasks = [_translate_with_semaphore(md_file) for md_file in input_files]
 
     results = await tqdm.gather(*tasks, desc="Translating files")
 
-    dataset = to_weave_dataset(
-        name=f"Translation-{language}", 
-        rows=results)
+    dataset = to_weave_dataset(name=f"Translation-{language}", rows=results)
     weave.publish(dataset)
 
 

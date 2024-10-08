@@ -31,12 +31,20 @@ class PromptTemplate(weave.Object):
     evaluation_prompt: str | None  # contains {original_page} and {translated_page}
 
     @classmethod
-    def from_files(cls, system_prompt_file, human_prompt_file, dictionary_file, evaluation_prompt_file=None):
+    def from_files(
+        cls,
+        system_prompt_file,
+        human_prompt_file,
+        dictionary_file,
+        evaluation_prompt_file=None,
+    ):
         system_prompt = Path(system_prompt_file).read_text()
         human_prompt = Path(human_prompt_file).read_text()
         dictionary = Path(dictionary_file).read_text()
         language = Path(dictionary_file).stem
-        evaluation_prompt = Path(evaluation_prompt_file).read_text() if evaluation_prompt_file else None
+        evaluation_prompt = (
+            Path(evaluation_prompt_file).read_text() if evaluation_prompt_file else None
+        )
         return cls(
             system_prompt=system_prompt,
             human_prompt=human_prompt,

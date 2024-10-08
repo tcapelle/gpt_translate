@@ -12,7 +12,7 @@ def test_validate_tabs_format_valid():
         </TabItem>
     </Tabs>
     """
-    assert _validate_tabs_format(content) == True
+    assert _validate_tabs_format(content) is True
 
 
 def test_validate_tabs_format_invalid():
@@ -25,7 +25,7 @@ def test_validate_tabs_format_invalid():
             JavaScript content
     </Tabs>
     """
-    assert _validate_tabs_format(content) == False
+    assert _validate_tabs_format(content) is False
 
 
 def test_validate_tabs_format_with_random_text():
@@ -41,4 +41,4 @@ def test_validate_tabs_format_with_random_text():
     </Tabs>
     Some random text after the tabs.
     """
-    assert _validate_tabs_format(content) == True
+    assert _validate_tabs_format(content) is True

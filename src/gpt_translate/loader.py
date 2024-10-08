@@ -1,4 +1,5 @@
-import re, yaml
+import re
+import yaml
 import logging
 from typing import Optional
 from dataclasses import dataclass, asdict
@@ -191,6 +192,7 @@ def find_links(raw_content: str, filename: str) -> list[MDLink]:
         for title, target in matches:
             links.append(MDLink(title, target, filename, i + 1))
     return links
+
 
 class MDPage(weave.Object):
     filename: str

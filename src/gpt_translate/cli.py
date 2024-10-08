@@ -1,14 +1,11 @@
 import weave
-import shlex
 import asyncio
-import aiohttp
 import logging
 from pathlib import Path
-from typing import Optional
 
 from rich.logging import RichHandler
 import simple_parsing
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 
 from gpt_translate.translate import _translate_file, _translate_files
 from gpt_translate.utils import get_md_files, _copy_images, get_modified_files
@@ -130,7 +127,7 @@ def eval(args=None):
 
     evaluator = Evaluator(config)
     evaluator.evaluate()
-    
+
 
 @dataclass
 class CopyImagesArgs:

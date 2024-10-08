@@ -10,11 +10,13 @@ from gpt_translate.loader import MDPage
 from gpt_translate.utils import openai_client
 from gpt_translate.prompts import PromptTemplate
 
+
 class LinksValidation(weave.Object):
     links_match: bool
     missing_links: list
     extra_links: list
     total_links: int
+
 
 @weave.op
 def validate_links(original_page: MDPage, translated_page: MDPage, model_output: Any):
@@ -40,6 +42,7 @@ class HeadersValidation(weave.Object):
     slug_match: bool
     displayed_sidebar_match: bool
     imports_match: bool
+
 
 @weave.op
 def validate_headers(original_page: MDPage, translated_page: MDPage, model_output: Any):
@@ -84,7 +87,7 @@ def validate_tabs(translated_page: MDPage, model_output: Any):
     content = translated_page.content
 
     return {"tabs_format_valid": _validate_tabs_format(content)}
- 
+
 
 class LLMJudge(weave.Model):
     system_prompt: str
@@ -96,9 +99,13 @@ class LLMJudge(weave.Model):
         """Evaluate the translation"""
         messages = [
             {"role": "system", "content": self.system_prompt},
-            {"role": "user", "content": self.evaluation_prompt.format(
-                original_page=original_page.content, 
-                translated_page=translated_page.content)},
+            {
+                "role": "user",
+                "content": self.evaluation_prompt.format(
+                    original_page=original_page.content,
+                    translated_page=translated_page.content,
+                ),
+            },
         ]
         res = await openai_client.chat.completions.create(
             messages=messages,
@@ -108,7 +115,7 @@ class LLMJudge(weave.Model):
         extracted = res.choices[0].message.content
         analysis = json.loads(extracted)
         return {"analysis": analysis, "translated_page": translated_page}
-    
+
 
 class Evaluator:
     def __init__(self, config: Config):
@@ -120,7 +127,6 @@ class Evaluator:
             "max_tokens": config.max_tokens,
         }
         self.setup_judge()
-
 
     def _load_prompts(self):
         config_folder = Path(self.config.config_folder)
@@ -144,17 +150,26 @@ class Evaluator:
     def get_dataset(self):
         logging.info(f"Getting dataset: {self.config.eval_dataset}")
         dataset = weave.ref(self.config.eval_dataset).get()
+
         def deserialize(md_page):
             """md_page is a string of a dictionary"""
             return MDPage.model_validate(json.loads(md_page))
-        return [{"original_page": deserialize(row["original_page"]), 
-                 "translated_page": deserialize(row["translated_page"])} for row in dataset.rows]
+
+        return [
+            {
+                "original_page": deserialize(row["original_page"]),
+                "translated_page": deserialize(row["translated_page"]),
+            }
+            for row in dataset.rows
+        ]
 
     def evaluate(self):
-        evaluation = weave.Evaluation(dataset=self.dataset,
-                         scorers=[
-                             validate_links,
-                             validate_headers,
-                             validate_tabs,
-                         ])
+        evaluation = weave.Evaluation(
+            dataset=self.dataset,
+            scorers=[
+                validate_links,
+                validate_headers,
+                validate_tabs,
+            ],
+        )
         asyncio.run(evaluation.evaluate(self.judge))

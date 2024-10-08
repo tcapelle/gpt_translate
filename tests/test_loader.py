@@ -79,9 +79,9 @@ import 3;"""
     extracted_header = extract_header(page)["header"]
     assert extracted_header == header
     header_obj = Header.from_string(extracted_header)
-    assert header_obj.description == None
-    assert header_obj.displayed_sidebar == None
-    assert header_obj.slug == None
+    assert header_obj.description is None
+    assert header_obj.displayed_sidebar is None
+    assert header_obj.slug is None
     assert header_obj.imports == "import 1;\nimport 2;\nimport 3;"
     assert str(header_obj) == header
 
@@ -118,10 +118,10 @@ def test_empty_header():
     extracted_header = extract_header(page)["header"]
     assert extracted_header == header
     header_obj = Header.from_string(extracted_header)
-    assert header_obj.description == None
-    assert header_obj.displayed_sidebar == None
-    assert header_obj.slug == None
-    assert header_obj.imports == None
+    assert header_obj.description is None
+    assert header_obj.displayed_sidebar is None
+    assert header_obj.slug is None
+    assert header_obj.imports is None
     assert str(header_obj) == header
 
 
