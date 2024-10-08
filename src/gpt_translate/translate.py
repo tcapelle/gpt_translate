@@ -1,6 +1,5 @@
 import logging
 import asyncio
-from datetime import datetime
 from typing import Optional
 from pathlib import Path
 from dataclasses import dataclass
@@ -15,7 +14,7 @@ from gpt_translate.loader import (
     MDPage,
     Header,
 )
-from gpt_translate.utils import file_is_empty, count_tokens, longer_create
+from gpt_translate.utils import file_is_empty, count_tokens, longer_create, to_weave_dataset
 
 
 ## Globals
@@ -51,7 +50,6 @@ class Translator(weave.Object):
     language: str = "ja"
     do_translate_header_description: bool = True
     model_args: dict = dict(model="gpt-4o", temperature=1.0)
-    evaluation_prompt: Optional[str] = Field(default=None)
     prompt_template: PromptTemplate = Field(default=None)
 
     @model_validator(mode="before")
@@ -63,16 +61,11 @@ class Translator(weave.Object):
             config_folder / "human_prompt.txt",
             config_folder / f"language_dicts/{language}.yaml",
         )
-        if (config_folder / "evaluation_prompt.txt").exists():
-            evaluation_prompt = (config_folder / "evaluation_prompt.txt").read_text()
-        else:
-            evaluation_prompt = None
 
         values.update(
             {
                 "config_folder": config_folder,
                 "prompt_template": prompt_template,
-                "evaluation_prompt": evaluation_prompt,
             }
         )
         return values
@@ -238,13 +231,9 @@ async def _translate_files(
 
     results = await tqdm.gather(*tasks, desc="Translating files")
 
-    # push to weave
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    dataset = weave.Dataset(
-        name=f"translation_{timestamp}", 
-        description="Translation files", 
-        rows = results
-    )
+    dataset = to_weave_dataset(
+        name=f"Translation-{language}", 
+        rows=results)
     weave.publish(dataset)
 
 

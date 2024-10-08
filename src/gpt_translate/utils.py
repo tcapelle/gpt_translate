@@ -5,9 +5,10 @@ import weave
 from datetime import datetime, timedelta
 from pathlib import Path
 
+import pydantic
+import tiktoken
 from openai import AsyncOpenAI
 from fastcore.xtras import globtastic
-import tiktoken
 
 # Use the OpenAI API in async mode
 openai_client = AsyncOpenAI()
@@ -162,3 +163,20 @@ def get_modified_files(repo_path: Path, since_days: int = 14, extension: str = "
         f"Found {len(modified_files)} modified files in the last {since_days} days in: {repo_path}"
     )
     return modified_files
+
+
+def to_weave_dataset(name: str, rows: list) -> weave.Dataset:
+    # serialize the pydantic objects that are in the dictionary:
+    for result in rows:
+        for k, v in result.items():
+            # check if we have weave.Object or pydantic.BaseModel
+            if isinstance(v, pydantic.BaseModel | weave.Object):
+                result[k] = v.model_dump_json()
+
+    # push to weave
+    dataset = weave.Dataset(
+        name=name, 
+        description="Translation files", 
+        rows = rows
+    )
+    return dataset

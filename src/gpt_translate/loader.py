@@ -53,7 +53,7 @@ class MDLink:
     title: str
     target: str
     filename: str
-    line_number: str
+    line_number: int
 
     def __str__(self):
         return f"{self.filename}:{self.line_number:>4}: [{self.title}]({self.target})"
@@ -202,7 +202,7 @@ class MDPage(weave.Object):
 
     @model_validator(mode="after")
     def set_links(self):
-        self.links = find_links(self.content, self.filename)
+        self.links = self.links or find_links(self.content, self.filename)
         return self
 
     @classmethod

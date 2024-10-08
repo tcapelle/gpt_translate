@@ -32,6 +32,8 @@ class Config(Serializable):
     out_folder: str = "./docs_translated/"  # Folder to save the translated files to
     limit: int = None  # Limit number of files to translate
 
+    eval_dataset: str = "Translation-ja:latest" # the Weave dataset name to evaluate
+
 
 def setup_parsing(args):
     # parser = simple_parsing.ArgumentParser(

@@ -13,6 +13,7 @@ from dataclasses import dataclass, asdict
 from gpt_translate.translate import _translate_file, _translate_files
 from gpt_translate.utils import get_md_files, _copy_images, get_modified_files
 from gpt_translate.configs import setup_parsing
+from gpt_translate.evaluate import Evaluator
 
 
 def setup_logging(debug=False, silence_openai=True, weave_project=None):
@@ -117,6 +118,19 @@ def translate_folder(args=None):
         )
     )
 
+
+def eval(args=None):
+    config = setup_parsing(args=args)
+    setup_logging(
+        config.debug,
+        silence_openai=config.silence_openai,
+        weave_project=config.weave_project,
+    )
+    logging.info(f"{config.dumps_yaml()}")
+
+    evaluator = Evaluator(config)
+    evaluator.evaluate()
+    
 
 @dataclass
 class CopyImagesArgs:
