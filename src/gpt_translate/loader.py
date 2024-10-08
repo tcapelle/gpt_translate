@@ -192,16 +192,16 @@ def find_links(raw_content: str, filename: str) -> list[MDLink]:
             links.append(MDLink(title, target, filename, i + 1))
     return links
 
-
 class MDPage(weave.Object):
     filename: str
     content: str
     header: Header
-    links: list[MDLink] = Field(default=None)
+    links: list[MDLink] | None = Field(default=None)
 
     @model_validator(mode="after")
     def set_links(self):
-        self.links = self.links or find_links(self.content, self.filename)
+        if self.links is None:
+            self.links = find_links(self.content, self.filename)
         return self
 
     @classmethod
