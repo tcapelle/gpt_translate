@@ -179,7 +179,6 @@ def extract_header(content: str) -> dict:
     return {"header": header, "content": content}
 
 
-@weave.op
 def find_links(raw_content: str, filename: str) -> list[MDLink]:
     """
     Finds all Markdown links in the content.
