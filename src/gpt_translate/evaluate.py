@@ -1,8 +1,16 @@
 import re
+import json
 
 import weave
 from gpt_translate.loader import MDPage
+from gpt_translate.utils import openai_client
 
+
+class LinksValidation(weave.Object):
+    links_match: bool
+    missing_links: list
+    extra_links: list
+    total_links: int
 
 @weave.op
 def validate_links(original_page: MDPage, translated_page: MDPage):
@@ -14,13 +22,20 @@ def validate_links(original_page: MDPage, translated_page: MDPage):
 
     missing_links = [link for link in original_links if link not in translated_links]
     extra_links = [link for link in translated_links if link not in original_links]
-    return {
-        "links_match": len(missing_links) == 0 and len(extra_links) == 0,
-        "missing_links": [l.target for l in missing_links],
-        "extra_links": [l.target for l in extra_links],
-        "total_links": len(original_links),
-    }
+    return LinksValidation(
+        links_match=len(missing_links) == 0 and len(extra_links) == 0,
+        missing_links=[l.target for l in missing_links],
+        extra_links=[l.target for l in extra_links],
+        total_links=len(original_links),
+    )
 
+
+class HeadersValidation(weave.Object):
+    title_match: bool
+    description_match: bool
+    slug_match: bool
+    displayed_sidebar_match: bool
+    imports_match: bool
 
 @weave.op
 def validate_headers(original_page: MDPage, translated_page: MDPage):
@@ -36,13 +51,13 @@ def validate_headers(original_page: MDPage, translated_page: MDPage):
         original_header.displayed_sidebar == translated_header.displayed_sidebar
     )
     imports_match = original_header.imports == translated_header.imports
-    return {
-        "title_match": title_match,
-        "description_match": description_match,
-        "slug_match": slug_match,
-        "displayed_sidebar_match": displayed_sidebar_match,
-        "imports_match": imports_match,
-    }
+    return HeadersValidation(
+        title_match=title_match,
+        description_match=description_match,
+        slug_match=slug_match,
+        displayed_sidebar_match=displayed_sidebar_match,
+        imports_match=imports_match,
+    )
 
 
 def _validate_tabs_format(content: str) -> bool:
@@ -65,3 +80,27 @@ def validate_tabs(translated_page: MDPage):
     content = translated_page.content
 
     return {"tabs_format_valid": _validate_tabs_format(content)}
+ 
+
+class LLMJudge(weave.Model):
+    system_prompt: str
+    evaluation_prompt: str
+    model_args: dict
+
+    @weave.op
+    async def predict(self, original_page: MDPage, translated_page: MDPage):
+        """Evaluate the translation"""
+        messages = [
+            {"role": "system", "content": self.system_prompt},
+            {"role": "user", "content": self.evaluation_prompt.format(
+                original_page=original_page.content, 
+                translated_page=translated_page.content)},
+        ]
+        res = openai_client.chat.completions.create(
+            messages=messages,
+            **self.model_args,
+            response_format={"type": "json_object"},
+        )
+        extracted = res.choices[0].message.content
+        analysis = json.loads(extracted)
+        return analysis

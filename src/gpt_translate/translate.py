@@ -1,16 +1,9 @@
-import json
 import logging
 import asyncio
 from typing import Optional
 from pathlib import Path
 from dataclasses import dataclass
-from openai import AsyncOpenAI
 from tqdm.asyncio import tqdm
-from tenacity import (
-    retry,
-    stop_after_attempt,
-    wait_random_exponential,  # for exponential backoff
-)
 
 import weave
 from pydantic import model_validator, Field
@@ -21,55 +14,13 @@ from gpt_translate.loader import (
     MDPage,
     Header,
 )
-from gpt_translate.utils import file_is_empty, count_tokens, remove_after
-from gpt_translate.validate import validate_links, validate_headers, validate_tabs
+from gpt_translate.utils import file_is_empty, count_tokens, longer_create
 
-
-# Use the OpenAI API in async mode
-client = AsyncOpenAI()
 
 ## Globals
 REPLACE = False
 REMOVE_COMMENTS = True
 MAX_OPENAI_CONCURRENT_CALLS = 7  # Adjust the limit as needed
-
-
-@retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
-async def completion_with_backoff(**kwargs):
-    return await client.chat.completions.create(**kwargs)
-
-
-@weave.op
-async def longer_create(messages=None, max_tokens=4096, **kwargs):
-    """
-    longer_create is a function that extends the max_tokens beyond the default 4096 by recursively calling the create method if the finish_reason is hitting the max_tokens.
-    """
-    if messages is None:
-        messages = []
-
-    res = await completion_with_backoff(
-        messages=messages, max_tokens=max_tokens, **kwargs
-    )
-    message_content = res.choices[0].message.content
-    logging.debug(res.usage)
-    logging.debug(
-        f"[blue]OpenAI response:\n{message_content[:100]}...[/blue]",
-        extra={"markup": True},
-    )
-
-    finish_reason = res.choices[0].finish_reason
-    if finish_reason == "length":
-        # trim message to the last separator
-        process_tail = remove_after(message_content)
-        messages.append({"role": "assistant", "content": process_tail["text"]})
-        # Recursively call the function with the last assistant's message
-        logging.debug(f"Recursively calling with {messages[-1]['content'][:100]}")
-        next_response = await longer_create(
-            messages=messages, max_tokens=max_tokens, **kwargs
-        )
-        return process_tail["text"] + next_response
-    else:
-        return message_content
 
 
 @dataclass
@@ -97,7 +48,6 @@ class Translator(weave.Object):
     "A class to translate markdown files asynchronously"
     config_folder: Path
     language: str = "ja"
-    do_evaluation: bool = True
     do_translate_header_description: bool = True
     model_args: dict = dict(model="gpt-4o", temperature=1.0)
     evaluation_prompt: Optional[str] = Field(default=None)
@@ -142,14 +92,8 @@ class Translator(weave.Object):
             extra={"markup": True},
         )
         translated_page = await self.translate_page(md_page)
-
-        if self.evaluate:
-            evaluation_results = await self.evaluate(md_page, translated_page)
-            return {
-                "translated_page": translated_page,
-                "evaluation_results": evaluation_results,
-            }
-        return {"translated_page": translated_page}
+        return {"input_page": md_page, 
+                "translated_page": translated_page}
 
     @weave.op
     async def translate_page(self, md_page: MDPage, translate_header: bool = True):
@@ -196,41 +140,6 @@ class Translator(weave.Object):
         )
         return translated_description
 
-    @weave.op
-    async def evaluate(self, md_page: MDPage, translated_page: MDPage):
-        """Validate the translation"""
-        links_validation = validate_links(md_page, translated_page)
-        headers_validation = validate_headers(md_page, translated_page)
-        tabs_validation = validate_tabs(translated_page)
-        logging.debug(f"✅ Links validation: {links_validation}")
-        logging.debug(f"✅ Headers validation: {headers_validation}")
-        logging.debug(f"✅ Tabs validation: {tabs_validation}")
-        translation_validation = await self.evaluate_translation(
-            md_page, translated_page
-        )
-        logging.debug(f"✅ Translation validation: {translation_validation}")
-        return {
-            "links_validation": links_validation,
-            "headers_validation": headers_validation,
-            "tabs_validation": tabs_validation,
-            "translation_validation": translation_validation,
-        }
-
-    @weave.op
-    async def evaluate_translation(self, md_page: MDPage, translated_page: MDPage):
-        """Evaluate the translation"""
-        messages = self.prompt_template.format(md_chunk=md_page.content)
-        messages.append({"role": "assistant", "content": f"{translated_page.content}"})
-        messages.append({"role": "user", "content": self.evaluation_prompt})
-        res = await completion_with_backoff(
-            messages=messages,
-            **self.model_args,
-            response_format={"type": "json_object"},
-        )
-        extracted = res.choices[0].message.content
-        analysis = json.loads(extracted)
-        return analysis
-
 
 @weave.op
 async def _translate_file(
@@ -240,7 +149,6 @@ async def _translate_file(
     language: str = "es",  # Language to translate to
     config_folder: str = "./configs",  # Config folder
     remove_comments: bool = REMOVE_COMMENTS,  # Remove comments
-    do_evaluation: bool = True,  # Evaluate the translated file
     do_translate_header_description: bool = True,  # Translate the header description
     model_args: dict = dict(model="gpt-4o", temperature=1.0),  # model args
 ) -> MDPage:
@@ -260,7 +168,6 @@ async def _translate_file(
             translator = Translator(
                 config_folder=config_folder,
                 language=language,
-                do_evaluation=do_evaluation,
                 do_translate_header_description=do_translate_header_description,
                 model_args=model_args,
             )
@@ -288,7 +195,6 @@ async def _translate_files(
     language: str = "es",  # Language to translate to
     config_folder: str = "./configs",  # Config folder
     remove_comments: bool = REMOVE_COMMENTS,  # Remove comments
-    do_evaluation: bool = True,  # Evaluate the translated file
     do_translate_header_description: bool = True,  # Translate the header description
     model_args: dict = dict(model="gpt-4o", temperature=1.0),  # model args
     max_openai_concurrent_calls: int = MAX_OPENAI_CONCURRENT_CALLS,  # Maximum number of concurrent calls to OpenAI
@@ -322,7 +228,6 @@ async def _translate_files(
                 language=language,
                 config_folder=config_folder,
                 remove_comments=remove_comments,
-                do_evaluation=do_evaluation,
                 do_translate_header_description=do_translate_header_description,
                 model_args=model_args,
             )
@@ -344,6 +249,5 @@ if __name__ == "__main__":
             replace=True,
             language="ja",
             config_folder="./configs",
-            do_evaluation=True,
         )
     )

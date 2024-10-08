@@ -23,7 +23,6 @@ class Config(Serializable):
     config_folder: str  # Config folder
     replace: bool  # Replace existing file
     remove_comments: bool  # Remove comments
-    do_evaluation: bool  # Do evaluation
     do_translate_header_description: bool  # Translate the header description
     max_openai_concurrent_calls: int  # Max number of concurrent calls to OpenAI
 
