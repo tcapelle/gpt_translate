@@ -1,4 +1,3 @@
-import yaml
 import json
 import logging
 import asyncio
@@ -21,7 +20,6 @@ from gpt_translate.loader import (
     remove_markdown_comments,
     MDPage,
     Header,
-    split_markdown,
 )
 from gpt_translate.utils import file_is_empty, count_tokens, remove_after
 from gpt_translate.validate import validate_links, validate_headers, validate_tabs
@@ -82,7 +80,7 @@ class TranslationResult:
 
 @weave.op
 async def translate_content(
-    md_content: str, prompt: PromptTemplate, token_count: int = None, **model_args
+    md_content: str, prompt: PromptTemplate, **model_args
 ):
     """Translate a markdown chunk asynchronously
     md_content: markdown content
@@ -127,51 +125,6 @@ class Translator(weave.Object):
             }
         )
         return values
-
-    # @weave.op
-    # async def translate_splitted_md(
-    #     self,
-    #     splitted_markdown: list[str],
-    #     sep: str = "\n\n",
-    # ) -> str:
-    #     """Translate a list of markdown chunks asynchronously
-    #     splitted_markdown: list of markdown chunks
-    #     prompt: PromptTemplate object
-    #     max_chunk_tokens: maximum number of tokens per chunk
-    #     sep: separator between chunks
-    #     model_args: arguments to pass to the completion_with_backoff function
-    #     return: translated markdown file
-    #     """
-
-    #     tasks = []
-    #     packed_chunks = ""
-    #     packed_chunks_len = 0
-
-    #     translated_chunks = []
-    #     for i, chunk in enumerate(splitted_markdown):
-    #         n_tokens = count_tokens(chunk)
-
-    #         if packed_chunks_len + n_tokens <= self.max_chunk_tokens:
-    #             logging.debug(f"Packing chunk {i} with {n_tokens} tokens")
-    #             packed_chunks += sep + chunk
-    #             packed_chunks_len += n_tokens
-    #         else:
-    #             logging.debug(f">> Translating {packed_chunks_len} tokens")
-    #             translated_chunk = await translate_content(
-    #                 packed_chunks, self.prompt_template, token_count=packed_chunks_len, **self.model_args
-    #             )
-    #             translated_chunks.append(translated_chunk.content)
-    #             logging.debug(f">> Translated {translated_chunk.tokens} tokens")
-    #             packed_chunks = chunk
-    #             packed_chunks_len = n_tokens
-
-    #     if packed_chunks:
-    #         logging.debug(f">> Translating {packed_chunks_len} tokens (last chunk)")
-    #         translated_chunk = await translate_content(
-    #             packed_chunks, self.prompt_template, token_count=packed_chunks_len, **self.model_args
-    #         )
-    #         translated_chunks.append(translated_chunk.content)
-    #     return sep.join(translated_chunks)
 
     @weave.op
     async def translate_file(self, md_file: str, remove_comments: bool = True):
