@@ -11,7 +11,11 @@ from openai import AsyncOpenAI
 from fastcore.xtras import globtastic
 
 # Use the OpenAI API in async mode
-openai_client = AsyncOpenAI()
+try:
+    openai_client = AsyncOpenAI()
+except Exception as e:
+    logging.warning("Failed to initialize OpenAI client. Using a dummy client.")
+    openai_client = None
 
 MODEL = "gpt-4"
 
