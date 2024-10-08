@@ -1,5 +1,6 @@
 import logging
 import asyncio
+from datetime import datetime
 from typing import Optional
 from pathlib import Path
 from dataclasses import dataclass
@@ -92,7 +93,7 @@ class Translator(weave.Object):
             extra={"markup": True},
         )
         translated_page = await self.translate_page(md_page)
-        return {"input_page": md_page, 
+        return {"original_page": md_page, 
                 "translated_page": translated_page}
 
     @weave.op
@@ -221,7 +222,7 @@ async def _translate_files(
     async def _translate_with_semaphore(md_file):
         async with semaphore:
             out_file = out_folder / md_file.relative_to(input_folder)
-            return await _translate_file(
+            translation_results = await _translate_file(
                 input_file=str(md_file),
                 out_file=str(out_file),
                 replace=replace,
@@ -231,10 +232,20 @@ async def _translate_files(
                 do_translate_header_description=do_translate_header_description,
                 model_args=model_args,
             )
-
+            translation_results.update({"input_file": str(md_file), "output_file": str(out_file), "language": language})
+            return translation_results
     tasks = [_translate_with_semaphore(md_file) for md_file in input_files]
 
-    await tqdm.gather(*tasks, desc="Translating files")
+    results = await tqdm.gather(*tasks, desc="Translating files")
+
+    # push to weave
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    dataset = weave.Dataset(
+        name=f"translation_{timestamp}", 
+        description="Translation files", 
+        rows = results
+    )
+    weave.publish(dataset)
 
 
 if __name__ == "__main__":
