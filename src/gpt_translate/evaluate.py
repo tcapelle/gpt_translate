@@ -2,8 +2,9 @@ import asyncio
 import re
 import json
 import logging
+import yaml
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 import weave
 from gpt_translate.configs import EvalConfig
 from gpt_translate.loader import MDPage
@@ -11,22 +12,8 @@ from gpt_translate.utils import openai_client
 from gpt_translate.prompts import PromptTemplate
 
 
-class LinksValidation(weave.Object):
-    links_match: bool
-    missing_links: list
-    extra_links: list
-    total_links: int
-
-class HeadersValidation(weave.Object):
-    title_match: bool
-    description_match: bool
-    slug_match: bool
-    displayed_sidebar_match: bool
-    imports_match: bool
-
-
 @weave.op
-def validate_links(original_page: MDPage, translated_page: MDPage, model_output: Any) -> LinksValidation:
+def validate_links(original_page: MDPage, translated_page: MDPage, model_output: Any) -> dict:
     """
     Validate that the links in the original page are the same as the links in the translated page.
     """
@@ -35,7 +22,7 @@ def validate_links(original_page: MDPage, translated_page: MDPage, model_output:
 
     missing_links = [link for link in original_links if link not in translated_links]
     extra_links = [link for link in translated_links if link not in original_links]
-    return LinksValidation(
+    return dict(
         links_match=len(missing_links) == 0 and len(extra_links) == 0,
         missing_links=[l.target for l in missing_links],
         extra_links=[l.target for l in extra_links],
@@ -44,7 +31,7 @@ def validate_links(original_page: MDPage, translated_page: MDPage, model_output:
 
 
 @weave.op
-def validate_headers(original_page: MDPage, translated_page: MDPage, model_output: Any) -> HeadersValidation:
+def validate_headers(original_page: MDPage, translated_page: MDPage, model_output: Any) -> dict:
     """
     Validate that the headers in the original page are the same as the headers in the translated page.
     """
@@ -57,7 +44,7 @@ def validate_headers(original_page: MDPage, translated_page: MDPage, model_outpu
         original_header.displayed_sidebar == translated_header.displayed_sidebar
     )
     imports_match = original_header.imports == translated_header.imports
-    return HeadersValidation(
+    return dict(
         title_match=title_match,
         description_match=description_match,
         slug_match=slug_match,
@@ -82,8 +69,44 @@ def validate_tabs(translated_page: MDPage, model_output: Any) -> bool:
 
     results = bool(tab_pattern.search(translated_page.content))
 
-    return {"tabs_format_valid": _validate_tabs_format(results)}
+    return {"tabs_format_valid": results}
 
+
+def _validate_technical_words(original_page: MDPage, translated_page: MDPage, dictionary: dict) -> dict:
+    """Validate that technical words are translated correctly and maintain their frequency."""
+    if not dictionary:
+        return {"tech_words_percentage": 1.0, "mismatched": []}
+    
+    original_word_count = sum(original_page.content.count(re.escape(k)) for k in dictionary)
+    translated_word_count = 0
+    mismatched = []
+
+    for k, v in dictionary.items():
+        original_count = original_page.content.count(re.escape(k))
+        translated_count = translated_page.content.count(re.escape(v))
+        translated_word_count += translated_count
+
+        if original_count != translated_count:
+            mismatched.append((k, v))
+    
+    tech_words_percentage = translated_word_count / original_word_count if original_word_count > 0 else 1.0
+    
+    return {
+        "tech_words_percentage": tech_words_percentage,
+        "mismatched": mismatched
+    }
+
+def validate_technical_words(dictionary: dict) -> Callable:
+    @weave.op(name="validate_technical_words")
+    def _inner(original_page: MDPage, translated_page: MDPage, model_output: Any) -> dict:
+        return _validate_technical_words(original_page, translated_page, dictionary)
+    return _inner
+
+ALL_SCORERS = [
+    validate_links,
+    validate_headers,
+    validate_tabs,
+]
 
 class LLMJudge(weave.Model):
     system_prompt: str
@@ -113,10 +136,13 @@ class LLMJudge(weave.Model):
         return {"analysis": analysis, "translated_page": translated_page}
 
 
+
 class Evaluator:
-    def __init__(self, config: EvalConfig):
+    def __init__(self, config: EvalConfig, scorers: list[Callable] = ALL_SCORERS):
         self.config = config
         self.dataset = self.get_dataset()
+        self.prompt_template = self._load_prompts()
+        self.scorers = self.setup_scorers(scorers)
         self.model_args = {
             "model": config.model,
             "temperature": config.temperature,
@@ -124,22 +150,19 @@ class Evaluator:
         }
         self.setup_judge()
 
+    def setup_scorers(self, scorers: list[Callable]):
+        dictionary = yaml.safe_load(self.prompt_template.dictionary)
+        return scorers + [validate_technical_words(dictionary)]
+
     def _load_prompts(self):
         config_folder = Path(self.config.config_folder)
         language = self.config.language
-        prompt_template = PromptTemplate.from_files(
-            config_folder / "system_prompt.txt",
-            config_folder / "human_prompt.txt",
-            config_folder / f"language_dicts/{language}.yaml",
-            config_folder / "evaluation_prompt.txt",
-        )
-        return prompt_template
+        return PromptTemplate.from_folder(config_folder, language)
 
     def setup_judge(self):
-        prompt_template = self._load_prompts()
         self.judge = LLMJudge(
-            system_prompt=prompt_template.system_prompt,
-            evaluation_prompt=prompt_template.evaluation_prompt,
+            system_prompt=self.prompt_template.system_prompt,
+            evaluation_prompt=self.prompt_template.evaluation_prompt,
             model_args=self.model_args,
         )
 
@@ -151,21 +174,19 @@ class Evaluator:
             """md_page is a string of a dictionary"""
             return MDPage.model_validate(json.loads(md_page))
 
-        return [
+        ds = [
             {
                 "original_page": deserialize(row["original_page"]),
                 "translated_page": deserialize(row["translated_page"]),
             }
             for row in dataset.rows
         ]
+        logging.info(f"Running eval on {len(ds)} pages")
+        return ds
 
     def evaluate(self):
         evaluation = weave.Evaluation(
             dataset=self.dataset,
-            scorers=[
-                validate_links,
-                validate_headers,
-                validate_tabs,
-            ],
+            scorers=self.scorers,
         )
         asyncio.run(evaluation.evaluate(self.judge))
