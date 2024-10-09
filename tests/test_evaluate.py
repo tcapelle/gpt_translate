@@ -1,7 +1,12 @@
-from gpt_translate.validate import _validate_tabs_format
+from dataclasses import dataclass
+from gpt_translate.evaluate import validate_tabs
+
+@dataclass
+class MDPage:
+    content: str
 
 
-def test_validate_tabs_format_valid():
+def test_validate_tabs_valid():
     content = """
     <Tabs>
         <TabItem value="python" label="Python">
@@ -12,10 +17,11 @@ def test_validate_tabs_format_valid():
         </TabItem>
     </Tabs>
     """
-    assert _validate_tabs_format(content) == True
+    page = MDPage(content)
+    assert validate_tabs(page, model_output=None)["tabs_format_valid"] is True
 
 
-def test_validate_tabs_format_invalid():
+def test_validate_tabs_invalid():
     content = """
     <Tabs>
         <TabItem value="python" label="Python">
@@ -25,7 +31,8 @@ def test_validate_tabs_format_invalid():
             JavaScript content
     </Tabs>
     """
-    assert _validate_tabs_format(content) == False
+    page = MDPage(content)
+    assert validate_tabs(page, model_output=None)["tabs_format_valid"] is False
 
 
 def test_validate_tabs_format_with_random_text():
@@ -41,4 +48,5 @@ def test_validate_tabs_format_with_random_text():
     </Tabs>
     Some random text after the tabs.
     """
-    assert _validate_tabs_format(content) == True
+    page = MDPage(content)
+    assert validate_tabs(page, model_output=None)["tabs_format_valid"] is True

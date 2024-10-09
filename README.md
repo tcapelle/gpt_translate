@@ -2,6 +2,7 @@
 [![Weave](https://raw.githubusercontent.com/wandb/weave/master/docs/static/img/logo.svg)](https://wandb.ai/capecape/gpt-translate/weave/)
 
 # gpt_translate: Translating MD files with GPT-4
+
 This is a tool to translate Markdown files without breaking the structure of the document. It is powered by OpenAI models and has multiple parsing and formatting options. The provided default example is the one we use to translate our documentation website [docs.wandb.ai](https://docs.wandb.ai) to [japanese](https://docs.wandb.ai/ja/) and [korean](https://docs.wandb.ai/ko/).
 
 ![](assets/screenshot.png)
@@ -9,7 +10,7 @@ This is a tool to translate Markdown files without breaking the structure of the
 > You can click [here](https://wandb.ai/capecape/gpt-translate/r/call/a18deff9-a963-4ad6-b5d6-b0ae63580575) to see the output of the translation on the screenshot above.
 
 ## Installation
-We have a stable version on PyPi, so you can install it with pip:
+We have a stable version on PyPI, so you can install it with pip:
 ```bash
 $ pip install gpt-translate
 ```
@@ -48,7 +49,6 @@ language: "ja"  # Language to translate to
 config_folder: "./configs"  # Config folder, where the prompts and dictionaries are
 replace: true  # Replace existing file
 remove_comments: true  # Remove comments
-do_evaluation: true  # Do evaluation
 do_translate_header_description: true  # Translate the header description
 max_openai_concurrent_calls: 7  # Max number of concurrent calls to OpenAI
 
@@ -112,12 +112,6 @@ If you don't know what to do, you can always do `--help` on any of the commands:
 $ gpt_translate.* --help
 ```
 
-## Validation
-
-The library performs an evaluation of the quality of the translation if `--do_evaluation` is set to `true`.
-You can modify the output of the LLM evaluation by changing the `configs/evaluation_prompt.txt`.
-
-Play with this prompt and maybe you can find better ways to evaluate the quality of the translation.
 
 ## Weave Tracing
 
@@ -135,6 +129,25 @@ $ gpt_translate.folder \
 ```
 
 ![Weave Tracing](./assets/weave.gif)
+
+## Evaluation
+
+Once the translation is done, you can evaluate the quality of the translation by running:
+
+```bash
+$ gpt_translate.eval \
+  --eval_dataset "Translation-ja:latest"
+```
+
+You can iterate on the translation prompts and dictionaries to improve the quality of the translation.
+
+![Weave Evaluation](./assets/compare_eval.png)
+
+The config for the evaluation shares many similarities with the translation config, which is stored in `configs/eval_config.yaml`. The `configs/evaluation_prompt.txt` file contains the prompt used by the LLM Judge to evaluate the translation quality. Feel free to play with it to find better ways to evaluate the quality of the translation according to your needs.
+
+> Whenever you run `gpt_translate.files` or `gpt_translate.folder`, it automatically creates a new Weave Dataset with the name in the format `Translation-{language}:{timestamp}`.
+
+![Weave Dataset](./assets/translation_ds.png)
 
 ## Github Action
 

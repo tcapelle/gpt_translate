@@ -5,10 +5,52 @@ import weave
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from fastcore.xtras import globtastic
+import pydantic
 import tiktoken
+from openai import AsyncOpenAI
+from fastcore.xtras import globtastic
+
+# Use the OpenAI API in async mode
+try:
+    openai_client = AsyncOpenAI()
+except Exception:
+    logging.warning("Failed to initialize OpenAI client. Using a dummy client.")
+    openai_client = None
 
 MODEL = "gpt-4"
+
+
+@weave.op
+async def longer_create(messages=None, max_tokens=4096, **kwargs):
+    """
+    longer_create is a function that extends the max_tokens beyond the default 4096 by recursively calling the create method if the finish_reason is hitting the max_tokens.
+    """
+    if messages is None:
+        messages = []
+
+    res = await openai_client.chat.completions.create(
+        messages=messages, max_tokens=max_tokens, **kwargs
+    )
+    message_content = res.choices[0].message.content
+    logging.debug(res.usage)
+    logging.debug(
+        f"[blue]OpenAI response:\n{message_content[:100]}...[/blue]",
+        extra={"markup": True},
+    )
+
+    finish_reason = res.choices[0].finish_reason
+    if finish_reason == "length":
+        # trim message to the last separator
+        process_tail = remove_after(message_content)
+        messages.append({"role": "assistant", "content": process_tail["text"]})
+        # Recursively call the function with the last assistant's message
+        logging.debug(f"Recursively calling with {messages[-1]['content'][:100]}")
+        next_response = await longer_create(
+            messages=messages, max_tokens=max_tokens, **kwargs
+        )
+        return process_tail["text"] + next_response
+    else:
+        return message_content
 
 
 @weave.op
@@ -127,3 +169,16 @@ def get_modified_files(repo_path: Path, since_days: int = 14, extension: str = "
         f"Found {len(modified_files)} modified files in the last {since_days} days in: {repo_path}"
     )
     return modified_files
+
+
+def to_weave_dataset(name: str, rows: list) -> weave.Dataset:
+    # serialize the pydantic objects that are in the dictionary:
+    for result in rows:
+        for k, v in result.items():
+            # check if we have weave.Object or pydantic.BaseModel
+            if isinstance(v, pydantic.BaseModel | weave.Object):
+                result[k] = v.model_dump_json()
+
+    # push to weave
+    dataset = weave.Dataset(name=name, description="Translation files", rows=rows)
+    return dataset
