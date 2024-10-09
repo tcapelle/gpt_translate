@@ -53,6 +53,15 @@ class PromptTemplate(weave.Object):
             evaluation_prompt=evaluation_prompt,
         )
 
+    @classmethod
+    def from_folder(cls, folder: Path, language: str = "ja"):
+        return cls.from_files(
+            folder / "system_prompt.txt",
+            folder / "human_prompt.txt",
+            folder / f"language_dicts/{language}.yaml",
+            folder / "evaluation_prompt.txt",
+        )
+
     def __str__(self):
         return (
             f"System Prompt:\n==============\n{self.system_prompt}"

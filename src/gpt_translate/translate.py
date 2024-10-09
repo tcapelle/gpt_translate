@@ -58,12 +58,7 @@ class Translator(weave.Object):
     def initialize_fields(cls, values):
         config_folder = Path(values.get("config_folder"))
         language = values.get("language", "ja")
-        prompt_template = PromptTemplate.from_files(
-            config_folder / "system_prompt.txt",
-            config_folder / "human_prompt.txt",
-            config_folder / f"language_dicts/{language}.yaml",
-        )
-
+        prompt_template = PromptTemplate.from_folder(config_folder, language)
         values.update(
             {
                 "config_folder": config_folder,
