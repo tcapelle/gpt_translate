@@ -5,7 +5,7 @@ import logging
 from pathlib import Path
 from typing import Any
 import weave
-from gpt_translate.configs import Config
+from gpt_translate.configs import EvalConfig
 from gpt_translate.loader import MDPage
 from gpt_translate.utils import openai_client
 from gpt_translate.prompts import PromptTemplate
@@ -17,9 +17,16 @@ class LinksValidation(weave.Object):
     extra_links: list
     total_links: int
 
+class HeadersValidation(weave.Object):
+    title_match: bool
+    description_match: bool
+    slug_match: bool
+    displayed_sidebar_match: bool
+    imports_match: bool
+
 
 @weave.op
-def validate_links(original_page: MDPage, translated_page: MDPage, model_output: Any):
+def validate_links(original_page: MDPage, translated_page: MDPage, model_output: Any) -> LinksValidation:
     """
     Validate that the links in the original page are the same as the links in the translated page.
     """
@@ -36,16 +43,8 @@ def validate_links(original_page: MDPage, translated_page: MDPage, model_output:
     )
 
 
-class HeadersValidation(weave.Object):
-    title_match: bool
-    description_match: bool
-    slug_match: bool
-    displayed_sidebar_match: bool
-    imports_match: bool
-
-
 @weave.op
-def validate_headers(original_page: MDPage, translated_page: MDPage, model_output: Any):
+def validate_headers(original_page: MDPage, translated_page: MDPage, model_output: Any) -> HeadersValidation:
     """
     Validate that the headers in the original page are the same as the headers in the translated page.
     """
@@ -67,7 +66,11 @@ def validate_headers(original_page: MDPage, translated_page: MDPage, model_outpu
     )
 
 
-def _validate_tabs_format(content: str) -> bool:
+@weave.op
+def validate_tabs(translated_page: MDPage, model_output: Any) -> bool:
+    """
+    Validate the Tabs in the docosaurus format
+    """
     tab_pattern = re.compile(
         r"""
         <Tabs\s*[^>]*>\s*
@@ -76,17 +79,10 @@ def _validate_tabs_format(content: str) -> bool:
         """,
         re.DOTALL | re.VERBOSE,
     )
-    return bool(tab_pattern.search(content))
 
+    results = bool(tab_pattern.search(translated_page.content))
 
-@weave.op
-def validate_tabs(translated_page: MDPage, model_output: Any):
-    """
-    Validate the Tabs in the docosaurus format
-    """
-    content = translated_page.content
-
-    return {"tabs_format_valid": _validate_tabs_format(content)}
+    return {"tabs_format_valid": _validate_tabs_format(results)}
 
 
 class LLMJudge(weave.Model):
@@ -118,7 +114,7 @@ class LLMJudge(weave.Model):
 
 
 class Evaluator:
-    def __init__(self, config: Config):
+    def __init__(self, config: EvalConfig):
         self.config = config
         self.dataset = self.get_dataset()
         self.model_args = {

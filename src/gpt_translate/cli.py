@@ -9,8 +9,9 @@ from dataclasses import dataclass
 
 from gpt_translate.translate import _translate_file, _translate_files
 from gpt_translate.utils import get_md_files, _copy_images, get_modified_files
-from gpt_translate.configs import setup_parsing
+from gpt_translate.configs import EvalConfig, setup_parsing, DEFAULT_EVAL_CONFIG_PATH, CopyImagesArgs, NewFilesArgs
 from gpt_translate.evaluate import Evaluator
+
 
 
 def setup_logging(debug=False, silence_openai=True, weave_project=None):
@@ -117,7 +118,7 @@ def translate_folder(args=None):
 
 
 def eval(args=None):
-    config = setup_parsing(args=args)
+    config = setup_parsing(args=args, config_class=EvalConfig, config_path=DEFAULT_EVAL_CONFIG_PATH)
     setup_logging(
         config.debug,
         silence_openai=config.silence_openai,
@@ -129,28 +130,14 @@ def eval(args=None):
     evaluator.evaluate()
 
 
-@dataclass
-class CopyImagesArgs:
-    src_path: Path
-    dst_path: Path
-
-
 def copy_images(args=None):
-    args = simple_parsing.parse(CopyImagesArgs)
+    args = simple_parsing.parse(args=args, config_class=CopyImagesArgs)
     print(args)
     _copy_images(args.src_path, args.dst_path)
 
 
-@dataclass
-class NewFilesArgs:
-    repo: Path
-    extension: str = ".md"
-    since_days: int = 14
-    out_file: Path = "./changed_files.txt"
-
-
 def new_files(args=None):
-    args = simple_parsing.parse(NewFilesArgs)
+    args = simple_parsing.parse(args=args, config_class=NewFilesArgs)
     print(args)
     setup_logging(debug=False)
     modified_files = get_modified_files(
