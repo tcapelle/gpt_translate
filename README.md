@@ -34,6 +34,7 @@ The library provides a set of commands that you can access as CLI. All the comma
 - `gpt_translate.file`: Translate a single file
 - `gpt_translate.folder`: Translate a folder recursively
 - `gpt_translate.files`: Translate a list of files, accepts `.txt` list of files as input.
+- `gpt_translate.eval`: Evaluate the quality of the translation
 
 
 We use GPT4 by default. You can change this on `configs/config.yaml`. The dafault values are:
