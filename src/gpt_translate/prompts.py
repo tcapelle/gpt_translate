@@ -4,6 +4,7 @@ import weave
 
 LANGUAGES_DICT = {
     "es": "Spanish",
+    "en": "English",
     "ja": "Japanese",
     "fr": "French",
     "de": "German",
