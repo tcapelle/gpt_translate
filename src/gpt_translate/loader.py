@@ -1,4 +1,5 @@
-import re, yaml
+import re
+import yaml
 import logging
 from typing import Optional
 from dataclasses import dataclass, asdict
@@ -53,7 +54,7 @@ class MDLink:
     title: str
     target: str
     filename: str
-    line_number: str
+    line_number: int
 
     def __str__(self):
         return f"{self.filename}:{self.line_number:>4}: [{self.title}]({self.target})"
@@ -81,6 +82,7 @@ class Header:
     slug: Optional[str] = None
     displayed_sidebar: Optional[str] = None
     toc_max_heading_level: Optional[int] = None
+    sidebar_position: Optional[int] = None
     imports: Optional[str] = None
 
     @classmethod
@@ -177,7 +179,6 @@ def extract_header(content: str) -> dict:
     return {"header": header, "content": content}
 
 
-@weave.op
 def find_links(raw_content: str, filename: str) -> list[MDLink]:
     """
     Finds all Markdown links in the content.
@@ -196,11 +197,12 @@ class MDPage(weave.Object):
     filename: str
     content: str
     header: Header
-    links: list[MDLink] = Field(default=None)
+    links: list[MDLink] | None = Field(default=None)
 
     @model_validator(mode="after")
     def set_links(self):
-        self.links = find_links(self.content, self.filename)
+        if self.links is None:
+            self.links = find_links(self.content, self.filename)
         return self
 
     @classmethod

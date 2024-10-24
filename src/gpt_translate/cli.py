@@ -1,18 +1,17 @@
 import weave
-import shlex
 import asyncio
-import aiohttp
 import logging
 from pathlib import Path
-from typing import Optional
 
 from rich.logging import RichHandler
 import simple_parsing
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 
 from gpt_translate.translate import _translate_file, _translate_files
 from gpt_translate.utils import get_md_files, _copy_images, get_modified_files
-from gpt_translate.configs import setup_parsing
+from gpt_translate.configs import EvalConfig, setup_parsing, DEFAULT_EVAL_CONFIG_PATH, CopyImagesArgs, NewFilesArgs
+from gpt_translate.evaluate import Evaluator
+
 
 
 def setup_logging(debug=False, silence_openai=True, weave_project=None):
@@ -51,7 +50,6 @@ def translate_file(args=None):
             language=config.language,
             config_folder=config.config_folder,
             remove_comments=config.remove_comments,
-            do_evaluation=config.do_evaluation,
             do_translate_header_description=config.do_translate_header_description,
             model_args={
                 "model": config.model,
@@ -79,7 +77,6 @@ def translate_files(args=None):
             language=config.language,
             config_folder=config.config_folder,
             remove_comments=config.remove_comments,
-            do_evaluation=config.do_evaluation,
             do_translate_header_description=config.do_translate_header_description,
             max_openai_concurrent_calls=config.max_openai_concurrent_calls,
             model_args={
@@ -109,7 +106,6 @@ def translate_folder(args=None):
             language=config.language,
             config_folder=config.config_folder,
             remove_comments=config.remove_comments,
-            do_evaluation=config.do_evaluation,
             do_translate_header_description=config.do_translate_header_description,
             max_openai_concurrent_calls=config.max_openai_concurrent_calls,
             model_args={
@@ -121,28 +117,27 @@ def translate_folder(args=None):
     )
 
 
-@dataclass
-class CopyImagesArgs:
-    src_path: Path
-    dst_path: Path
+def eval(args=None):
+    config = setup_parsing(args=args, config_class=EvalConfig, config_path=DEFAULT_EVAL_CONFIG_PATH)
+    setup_logging(
+        config.debug,
+        silence_openai=config.silence_openai,
+        weave_project=config.weave_project,
+    )
+    logging.info(f"{config.dumps_yaml()}")
+
+    evaluator = Evaluator(config)
+    evaluator.evaluate()
 
 
 def copy_images(args=None):
-    args = simple_parsing.parse(CopyImagesArgs)
+    args = simple_parsing.parse(args=args, config_class=CopyImagesArgs)
     print(args)
     _copy_images(args.src_path, args.dst_path)
 
 
-@dataclass
-class NewFilesArgs:
-    repo: Path
-    extension: str = ".md"
-    since_days: int = 14
-    out_file: Path = "./changed_files.txt"
-
-
 def new_files(args=None):
-    args = simple_parsing.parse(NewFilesArgs)
+    args = simple_parsing.parse(args=args, config_class=NewFilesArgs)
     print(args)
     setup_logging(debug=False)
     modified_files = get_modified_files(

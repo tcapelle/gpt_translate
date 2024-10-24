@@ -4,6 +4,7 @@ import weave
 
 LANGUAGES_DICT = {
     "es": "Spanish",
+    "en": "English",
     "ja": "Japanese",
     "fr": "French",
     "de": "German",
@@ -28,24 +29,45 @@ class PromptTemplate(weave.Object):
     human_prompt: str  # contains {md_chunk}
     dictionary: str  # contains dictionary of words and translations
     language: str  # language of the output
+    evaluation_prompt: str | None  # contains {original_page} and {translated_page}
 
     @classmethod
-    def from_files(cls, system_prompt_file, human_prompt_file, dictionary_file):
+    def from_files(
+        cls,
+        system_prompt_file,
+        human_prompt_file,
+        dictionary_file,
+        evaluation_prompt_file=None,
+    ):
         system_prompt = Path(system_prompt_file).read_text()
         human_prompt = Path(human_prompt_file).read_text()
         dictionary = Path(dictionary_file).read_text()
         language = Path(dictionary_file).stem
+        evaluation_prompt = (
+            Path(evaluation_prompt_file).read_text() if evaluation_prompt_file else None
+        )
         return cls(
             system_prompt=system_prompt,
             human_prompt=human_prompt,
             dictionary=dictionary,
             language=language,
+            evaluation_prompt=evaluation_prompt,
+        )
+
+    @classmethod
+    def from_folder(cls, folder: Path, language: str = "ja"):
+        return cls.from_files(
+            folder / "system_prompt.txt",
+            folder / "human_prompt.txt",
+            folder / f"language_dicts/{language}.yaml",
+            folder / "evaluation_prompt.txt",
         )
 
     def __str__(self):
         return (
             f"System Prompt:\n==============\n{self.system_prompt}"
             f"Human Prompt: \n==============\n{self.human_prompt}"
+            f"Evaluation Prompt: \n==============\n{self.evaluation_prompt}"
         )
 
     def filter_dictionary(self, query):

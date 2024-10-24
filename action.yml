@@ -1,27 +1,35 @@
 name: 'Translate'
 description: 'Automatic translation using GPT'
+
 inputs:
-  folder-to-translate:  # id of input
+  folder-to-translate:
     description: 'Path to folder to translate'
     required: true
     default: 'docs/'
-  language:  # id of input
+  language:
     description: 'Language to translate to'
     required: true
     default: 'es'
   output-folder:
     description: "Output Folder"
     default: 'docs_translated/'
-  max-chunk-tokens:
-    description: "Max size of chunk to translate at once"
-    default: "1000"
   config-folder:
     description: "Config Folder"
     default: './configs'
+  weave-project:
+    description: "Weave project name"
+    required: false
+    default: 'my_docs_translation'
+  input-file:
+    description: "Input .txt file with list of files to translate"
+    required: false
+
 outputs:
   translated-files:
     description: 'Translated files'
     value: ${{ steps.changed-files.outputs.changed_files }} 
+
+
 
 runs:
   using: "composite"
@@ -29,20 +37,39 @@ runs:
     - name: Get changed files
       id: changed-files
       run: |
-          echo "changed_files=$(git diff --name-only -r HEAD^1 HEAD | grep '\.md$' | xargs)" >> $GITHUB_OUTPUT
+        changed_files=$(git diff --name-only -r HEAD^1 HEAD | grep -E '\.(md|mdx)$' | xargs)
+        if [ -z "$changed_files" ]; then
+          echo "No changed Markdown files found."
+          echo "changed_files=" >> $GITHUB_OUTPUT
+        else
+          echo "Changed Markdown files: $changed_files"
+          echo "changed_files=$changed_files" >> $GITHUB_OUTPUT
+        fi
+        echo "$GITHUB_OUTPUT"
       shell: bash
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        python -m pip install gpt-translate
+        python -m pip install gpt_translate
       shell: bash
-    - name: translating files
+    - name: Create file list or use input file
       run: |
-        gpt_translate.files ${{ steps.changed-files.outputs.changed_files }} \
+        if [ -n "${{ inputs.input-file }}" ]; then
+          echo "Using provided input file: ${{ inputs.input-file }}"
+          cp "${{ inputs.input-file }}" files_to_translate.txt
+        else
+          echo "Creating file list from changed files"
+          echo "${{ steps.changed-files.outputs.changed_files }}" | tr ' ' '\n' > files_to_translate.txt
+        fi
+      shell: bash
+    - name: Translating files
+      run: |
+        gpt_translate.files \
+          --input_file files_to_translate.txt \
           --input_folder ${{ inputs.folder-to-translate }} \
           --out_folder ${{ inputs.output-folder }} \
           --language ${{ inputs.language }} \
-          --max_chunk_tokens ${{ inputs.max-chunk-tokens }} \
           --config_folder ${{ inputs.config-folder }} \
-          --replace
+          --replace \
+          --weave_project ${{ inputs.weave-project }}
       shell: bash

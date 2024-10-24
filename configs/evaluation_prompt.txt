@@ -1,3 +1,9 @@
+Here is the original page:
+{original_page}
+
+Here is the translated page:
+{translated_page}
+
 How good is the translation regarding the instructions you were given? Provide a detailed analysis.
 Return a json object with the following keys:
 - analysis: a detailed analysis of the translation
