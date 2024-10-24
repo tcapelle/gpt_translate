@@ -83,7 +83,6 @@ class Header:
     displayed_sidebar: Optional[str] = None
     toc_max_heading_level: Optional[int] = None
     sidebar_position: Optional[int] = None
-
     imports: Optional[str] = None
 
     @classmethod

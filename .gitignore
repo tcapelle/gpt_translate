@@ -15,3 +15,5 @@ dist/
 # wandb
 wandb/
 
+# mac
+**/.DS_Store
