@@ -77,12 +77,15 @@ def extract_markdown_links(filename, content):
 
 @dataclass
 class Header:
-    title: Optional[str] = None
-    description: Optional[str] = None
     slug: Optional[str] = None
+    title: Optional[str] = None
+    keywords: Optional[list] = None
+    unlisted: Optional[bool] = None
+    description: Optional[str] = None
+    sidebar_label: Optional[str] = None
+    sidebar_position: Optional[int] = None
     displayed_sidebar: Optional[str] = None
     toc_max_heading_level: Optional[int] = None
-    sidebar_position: Optional[int] = None
 
     imports: Optional[str] = None
 
