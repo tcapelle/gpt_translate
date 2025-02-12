@@ -1,3 +1,98 @@
+This fork of `gpt_translate` includes the config files (mainly glossary) for translating the [StarRocks docs](https://docs.starrocks.io) from English into Chinese.
+
+Please submit a PR to the parent of this fork at [`tcapelle/gpt_translate`](https://github.com/tcapelle/gpt_translate) if you change any files other than:
+- this README
+- `config/**`
+
+Use at StarRocks:
+
+1. Export the GPT `OPENAI_API_KEY`
+
+  ```bash
+  export OPENAI_API_KEY=sk-proj-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+  ```
+
+2. Translate a file
+
+> Tip
+>
+> The first time that you run the command you will be asked to paste a credential from your Weights \& Biases account. Sign up and create the account. The Weave feature from W\&B is useful for understanding the impact of changes you make to the translation workflow.
+>
+> The API key will be available at https://wandb.ai/authorize after you create the account.
+
+- Clone this repo and change dir into it
+- Install gpt_translate
+  ```bash
+  pip install .
+  ```
+- Translate a file. For example, to translate the Helm Quick Start:
+
+  ```bash
+  gpt_translate.file \
+    --input_file ~/GitHub/starrocks/docs/en/quick_start/helm.md \
+    --out_file docs/helm.md \
+    --language zh
+  ```
+> Note
+>
+> You can pass in the config dir, input and output folders, etc. See the output of `gpt_translate.file -h`. I am only documenting how I personally use this during testing, and I run the command from the directory where I cloned my fork.
+
+## Tuning
+
+Most (probably all) of the changes that you make will be in the `config/` dir:
+
+```bash
+config.yaml
+human_prompt.txt
+system_prompt.txt
+evaluation_prompt.txt
+configs/language_dicts/zh.yaml
+```
+
+### `config.yaml`
+
+The main change that I made to `config.yaml` was to `temperature`. I set this to `0.2` to reduce the "creativity" of GPT. This should increase the probability that our docs will be translated in the same way every time. In reviews of the output, the "tone" of the translated test docs improved with lower `temperature`.
+
+### `human_prompt.txt`
+
+`human_prompt.txt` contains a list of terms that should never be translated from English. If you notice terms that should be left in English, add them here.
+
+For example:
+
+```bash
+- StarRocks
+- external catalog
+- tablet
+```
+
+### `system_prompt.txt`
+
+This is the main instruction file for GPT, it includes most of the "prompt". I modified the default prompt from W\&B to instruct GPT to leave the code blocks alone (by default comments in code blocks were being translated). We should discuss how we want to deal with comments in code blocks, maybe they should be translated?
+
+Additionally, I added a prompt that follows the AWS "Evidence-Based Narrative" writing guide. I am hoping that this will reduce the inclusion of marketing fluff.
+
+### `evaluation_prompt.txt`
+
+This is an interesting file, after the translation is complete the translation is evaluated and the results are presented in the W\&B page.
+
+### `zh.yaml`
+
+This is our glossary. If you would like to change how a phrase is translated from English to Chinese please add an entry.
+
+Examples:
+
+```yaml
+FEs: FE
+BEs: BE
+Data loading: 数据导入
+Data unloading: 数据导出
+load: 导入
+native table: 内表
+Cloud-native table: 存算分离表
+```
+
+## Original README:
+
 [![PyPI version](https://badge.fury.io/py/gpt_translate.svg)](https://badge.fury.io/py/gpt_translate)
 [![Weave](https://raw.githubusercontent.com/wandb/weave/master/docs/static/img/logo.svg)](https://wandb.ai/capecape/gpt-translate/weave/)
 
@@ -36,6 +131,11 @@ The library provides a set of commands that you can access as CLI. All the comma
 - `gpt_translate.files`: Translate a list of files, accepts `.txt` list of files as input.
 - `gpt_translate.eval`: Evaluate the quality of the translation
 
+Export your OpenAI API key:
+
+```bash
+export OPENAI_API_KEY=aa-proj-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+```
 
 We use GPT4 by default. You can change this on `configs/config.yaml`. The dafault values are:
 
