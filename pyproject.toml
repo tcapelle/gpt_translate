@@ -24,8 +24,8 @@ classifiers = [
 dependencies = [
     "rich>=13.0",
     "openai>=1.0",
+    "litellm>1.50",
     "tiktoken>=0.5",
-    "tenacity>=8.2.3",
     "fastcore>=1.5.29",
     "weave>=0.50.3",
     "tqdm>=4.66.4",
