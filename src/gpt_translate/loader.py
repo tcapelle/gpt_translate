@@ -83,6 +83,9 @@ class Header:
     displayed_sidebar: Optional[str] = None
     toc_max_heading_level: Optional[int] = None
     sidebar_position: Optional[int] = None
+    sidebar_label: Optional[str] = None
+    keywords: Optional[list] = None
+    unlisted: Optional[bool] = None
 
     imports: Optional[str] = None
 
