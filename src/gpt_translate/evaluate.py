@@ -38,8 +38,8 @@ def validate_headers(original_page: MDPage, translated_page: MDPage, model_outpu
     """
     original_header = original_page.header
     translated_header = translated_page.header
-    title_match = original_header.title == translated_header.title
-    description_match = original_header.description == translated_header.description
+    title_match = original_header.metadata["title"] == translated_header.metadata["title"]
+    description_match = original_header.metadata["description"] == translated_header.metadata["description"]
     slug_match = original_header.slug == translated_header.slug
     displayed_sidebar_match = (
         original_header.displayed_sidebar == translated_header.displayed_sidebar

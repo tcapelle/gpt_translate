@@ -88,31 +88,33 @@ class Translator(weave.Object):
     @weave.op
     async def translate_page(self, md_page: MDPage, translate_header: bool = True):
         """Translate a markdown page asynchronously"""
-        # chunks = split_markdown(md_page.content)
-        # translated_content = await self.translate_splitted_md(chunks)
         translated_content = await translate_content(
             md_page.content, self.prompt_template, **self.model_args
         )
         logging.debug(f"Translated content: {translated_content}")
         if (
-            md_page.header.description and self.do_translate_header_description
-        ):  # check if header contains a description
+            md_page.header.metadata["description"] and self.do_translate_header_description
+        ):
             translated_header_description = await self.translate_header_description(
                 md_page
             )
-            logging.debug(
-                f"Translating header description: {md_page.header.description}"
-            )
+            logging.debug(f"Translating header description: {md_page.header.metadata}")
+            # Get all metadata except title and description
+            remaining_metadata = {
+                k: v for k, v in md_page.header.metadata.items() 
+                if k not in ['title', 'description']
+            }
+            
+            # Ensure the translated description is a string
+            translated_desc = str(translated_header_description.content) if translated_header_description else None
+            
             new_header = Header(
-                title=md_page.header.title,
-                description=(
-                    translated_header_description.content
-                    if md_page.header.description
-                    else None
-                ),
-                slug=md_page.header.slug,
-                displayed_sidebar=md_page.header.displayed_sidebar,
-                imports=md_page.header.imports,
+                metadata={
+                    'title': str(md_page.header.metadata["title"]),  # Convert title to string
+                    'description': translated_desc,
+                    **remaining_metadata,  # Unpack remaining fields
+                },
+                body=md_page.header.body,
             )
         else:
             new_header = md_page.header
@@ -126,7 +128,7 @@ class Translator(weave.Object):
     async def translate_header_description(self, md_page: MDPage):
         """Translate the header description"""
         translated_description = await translate_content(
-            md_page.header.description, self.prompt_template, **self.model_args
+            md_page.header.metadata["description"], self.prompt_template, **self.model_args
         )
         return translated_description
 
