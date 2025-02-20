@@ -1,8 +1,10 @@
 import logging
 import asyncio
 from pathlib import Path
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from tqdm.asyncio import tqdm
+from typing import Optional, Any
+import yaml
 
 import weave
 from pydantic import model_validator, Field
@@ -92,28 +94,19 @@ class Translator(weave.Object):
             md_page.content, self.prompt_template, **self.model_args
         )
         logging.debug(f"Translated content: {translated_content}")
-        if (
-            md_page.header.metadata["description"] and self.do_translate_header_description
-        ):
+        if md_page.header.description and self.do_translate_header_description:
             translated_header_description = await self.translate_header_description(
-                md_page
+                md_page.header.description
             )
-            logging.debug(f"Translating header description: {md_page.header.metadata}")
-            # Get all metadata except title and description
-            remaining_metadata = {
-                k: v for k, v in md_page.header.metadata.items() 
-                if k not in ['title', 'description']
-            }
+            logging.debug(f"Translating header description: {md_page.header}")
             
             # Ensure the translated description is a string
             translated_desc = str(translated_header_description.content) if translated_header_description else None
             
             new_header = Header(
-                metadata={
-                    'title': str(md_page.header.metadata["title"]),  # Convert title to string
-                    'description': translated_desc,
-                    **remaining_metadata,  # Unpack remaining fields
-                },
+                title=md_page.header.title,
+                description=translated_desc,
+                metadata=md_page.header.metadata,
                 body=md_page.header.body,
             )
         else:
@@ -125,10 +118,10 @@ class Translator(weave.Object):
         )
 
     @weave.op
-    async def translate_header_description(self, md_page: MDPage):
+    async def translate_header_description(self, header_description: str):
         """Translate the header description"""
         translated_description = await translate_content(
-            md_page.header.metadata["description"], self.prompt_template, **self.model_args
+            header_description, self.prompt_template, **self.model_args
         )
         return translated_description
 

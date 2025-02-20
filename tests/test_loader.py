@@ -63,8 +63,8 @@ displayed_sidebar: default
     assert extracted_header == header
     header_obj = Header.from_string(extracted_header)
     assert header_obj.description == "description"
-    assert header_obj.displayed_sidebar == "default"
-    assert header_obj.slug == "/guides/app"
+    assert header_obj.metadata["displayed_sidebar"] == "default"
+    assert header_obj.metadata["slug"] == "/guides/app"
     assert str(header_obj) == header
 
 
@@ -80,9 +80,8 @@ import 3;"""
     assert extracted_header == header
     header_obj = Header.from_string(extracted_header)
     assert header_obj.description is None
-    assert header_obj.displayed_sidebar is None
-    assert header_obj.slug is None
-    assert header_obj.imports == "import 1;\nimport 2;\nimport 3;"
+    assert header_obj.title is None
+    assert header_obj.body == "import 1;\nimport 2;\nimport 3;"
     assert str(header_obj) == header
 
 
@@ -103,9 +102,9 @@ import 3;"""
     assert extracted_header == header
     header_obj = Header.from_string(extracted_header)
     assert header_obj.description == "description"
-    assert header_obj.displayed_sidebar == "default"
-    assert header_obj.slug == "/guides/app"
-    assert header_obj.imports == "import 1;\nimport 2;\nimport 3;"
+    assert header_obj.metadata["displayed_sidebar"] == "default"
+    assert header_obj.metadata["slug"] == "/guides/app"
+    assert header_obj.body == "import 1;\nimport 2;\nimport 3;"
     assert str(header_obj) == header
 
 
@@ -119,9 +118,9 @@ def test_empty_header():
     assert extracted_header == header
     header_obj = Header.from_string(extracted_header)
     assert header_obj.description is None
-    assert header_obj.displayed_sidebar is None
-    assert header_obj.slug is None
-    assert header_obj.imports is None
+    assert header_obj.title is None
+    assert not header_obj.metadata
+    assert header_obj.body is None
     assert str(header_obj) == header
 
 
@@ -145,11 +144,8 @@ You can run W&B Server on your on-premises infrastructure if Multi-tenant Cloud 
     header_obj = Header.from_string(extracted["header"])
     assert header_obj.title == "Install on on-prem infra"
     assert header_obj.description == "Hosting W&B Server on on-premises infrastructure"
-    assert header_obj.displayed_sidebar == "default"
-    assert (
-        header_obj.imports
-        == "import Tabs from '@theme/Tabs';\nimport TabItem from '@theme/TabItem';"
-    )
+    assert header_obj.metadata["displayed_sidebar"] == "default"
+    assert header_obj.body == "import Tabs from '@theme/Tabs';\nimport TabItem from '@theme/TabItem';"
     assert str(header_obj) == header
     assert extracted["content"] == content
 
@@ -158,47 +154,64 @@ def test_header_serialization_with_japanese_characters():
     header_obj = Header(
         title="オンプレミス インフラストラクチャー",
         description="オンプレミス インフラストラクチャー上での W&B サーバーのホスティング",
-        displayed_sidebar="default",
-        imports="",
+        metadata={"displayed_sidebar": "default"}
     )
-    expected_header = """
----
+    expected_header = """---
 title: オンプレミス インフラストラクチャー
 description: オンプレミス インフラストラクチャー上での W&B サーバーのホスティング
 displayed_sidebar: default
----
-"""
+---"""
     assert (
         header_obj.description
         == "オンプレミス インフラストラクチャー上での W&B サーバーのホスティング"
     )
-    assert str(header_obj) == expected_header.strip()
+    assert str(header_obj) == expected_header
 
 
 def test_header_serialization_with_newlines_in_description():
     header_obj = Header(
         title="Sample Title",
         description="This is a description\nwith multiple lines\nthat should be serialized correctly.\n",
-        displayed_sidebar="default",
-        imports="",
+        metadata={"displayed_sidebar": "default"}
     )
-    expected_header = """
----
+    expected_header = """---
 title: Sample Title
 description: This is a description with multiple lines that should be serialized correctly.
 displayed_sidebar: default
----
-"""
+---"""
     assert (
         header_obj.description
         == "This is a description\nwith multiple lines\nthat should be serialized correctly.\n"
     )
-    assert str(header_obj) == expected_header.strip()
+    assert str(header_obj) == expected_header
 
 
 def test_header_class():
     "Empty header"
     h = Header(
-        title=None, description=None, slug=None, displayed_sidebar=None, imports=None
+        title=None, description=None, metadata={}, body=None
     )
     assert str(h) == ""
+
+
+def test_header_yaml_unicode_escaping():
+    """Test that Unicode characters are not escaped in YAML output"""
+    header_obj = Header(
+        title="W&B クイックスタート",
+        description="W&B クイックスタート。",
+        metadata={"displayed_sidebar": "default"}
+    )
+    expected_yaml = """---
+title: W&B クイックスタート
+description: W&B クイックスタート。
+displayed_sidebar: default
+---"""
+    
+    result = str(header_obj)
+    
+    # Check that the Unicode characters are not escaped
+    assert "\\u" not in result
+    # Check that the Japanese characters appear directly in the output
+    assert "クイック" in result
+    # Check the full output matches what we expect
+    assert result == expected_yaml
