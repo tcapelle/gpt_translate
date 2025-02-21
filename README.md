@@ -73,7 +73,7 @@ limit: null  # Limit number of files to translate
 # Model:
 model: "gpt-4o"
 temperature: 1.0
-max_tokens: 4096
+max_tokens: 16000
 
 ```
 You can override the arguments at runtime or by creating another `config.yaml` file. You can also use the `--config_path` flag to specify a different config file.
