@@ -6,7 +6,7 @@ silence_openai: true  # Silence OpenAI logger
 # Translation:
 language: "ja"  # Language to translate to
 config_folder: "./configs"  # Config folder
-max_openai_concurrent_calls: 7  # Max number of concurrent calls to OpenAI
+max_concurrent_calls: 7  # Max number of concurrent calls to OpenAI
 
 # Model:
 model: "gpt-4o"

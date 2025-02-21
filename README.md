@@ -61,7 +61,7 @@ config_folder: "./configs"  # Config folder, where the prompts and dictionaries 
 replace: true  # Replace existing file
 remove_comments: true  # Remove comments
 do_translate_header_description: true  # Translate the header description
-max_openai_concurrent_calls: 7  # Max number of concurrent calls to OpenAI
+max_concurrent_calls: 7  # Max number of concurrent calls to OpenAI
 
 # Files:
 input_file: "docs/intro.md"  # File to translate

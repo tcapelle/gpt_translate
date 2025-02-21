@@ -24,7 +24,7 @@ from gpt_translate.utils import (
 ## Globals
 REPLACE = False
 REMOVE_COMMENTS = True
-MAX_OPENAI_CONCURRENT_CALLS = 7  # Adjust the limit as needed
+MAX_CONCURRENT_CALLS = 7  # Adjust the limit as needed
 
 
 @dataclass
@@ -187,7 +187,7 @@ async def _translate_files(
     remove_comments: bool = REMOVE_COMMENTS,  # Remove comments
     do_translate_header_description: bool = True,  # Translate the header description
     model_args: dict = dict(model="gpt-4o", temperature=1.0),  # model args
-    max_openai_concurrent_calls: int = MAX_OPENAI_CONCURRENT_CALLS,  # Maximum number of concurrent calls to OpenAI
+    max_concurrent_calls: int = MAX_CONCURRENT_CALLS,  # Maximum number of concurrent calls to OpenAI
 ):
     # let's make input_files support a txt file with a list of files
     if not isinstance(input_files, list):
@@ -208,7 +208,7 @@ async def _translate_files(
     if not input_folder.is_dir():
         raise ValueError(f"{input_folder} is not a folder")
 
-    semaphore = asyncio.Semaphore(max_openai_concurrent_calls)
+    semaphore = asyncio.Semaphore(max_concurrent_calls)
 
     async def _translate_with_semaphore(md_file):
         async with semaphore:
