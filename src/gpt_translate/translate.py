@@ -1,8 +1,10 @@
 import logging
 import asyncio
+import time
 from pathlib import Path
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from tqdm.asyncio import tqdm
+from rich.console import Console
 
 import weave
 from pydantic import model_validator, Field
@@ -26,6 +28,7 @@ REPLACE = False
 REMOVE_COMMENTS = True
 MAX_CONCURRENT_CALLS = 7  # Adjust the limit as needed
 
+console = Console()
 
 @dataclass
 class TranslationResult:
@@ -83,36 +86,29 @@ class Translator(weave.Object):
             extra={"markup": True},
         )
         translated_page = await self.translate_page(md_page)
-        return {"original_page": md_page, "translated_page": translated_page}
+        return {"original_page": md_page, "translated_page": translated_page, "error": None}
 
     @weave.op
     async def translate_page(self, md_page: MDPage, translate_header: bool = True):
         """Translate a markdown page asynchronously"""
-        # chunks = split_markdown(md_page.content)
-        # translated_content = await self.translate_splitted_md(chunks)
         translated_content = await translate_content(
             md_page.content, self.prompt_template, **self.model_args
         )
         logging.debug(f"Translated content: {translated_content}")
-        if (
-            md_page.header.description and self.do_translate_header_description
-        ):  # check if header contains a description
+        if md_page.header.description and self.do_translate_header_description:
             translated_header_description = await self.translate_header_description(
-                md_page
+                md_page.header.description
             )
-            logging.debug(
-                f"Translating header description: {md_page.header.description}"
-            )
+            logging.debug(f"Translating header description: {md_page.header}")
+            
+            # Ensure the translated description is a string
+            translated_desc = str(translated_header_description.content) if translated_header_description else None
+            
             new_header = Header(
                 title=md_page.header.title,
-                description=(
-                    translated_header_description.content
-                    if md_page.header.description
-                    else None
-                ),
-                slug=md_page.header.slug,
-                displayed_sidebar=md_page.header.displayed_sidebar,
-                imports=md_page.header.imports,
+                description=translated_desc,
+                metadata=md_page.header.metadata,
+                body=md_page.header.body,
             )
         else:
             new_header = md_page.header
@@ -123,10 +119,10 @@ class Translator(weave.Object):
         )
 
     @weave.op
-    async def translate_header_description(self, md_page: MDPage):
+    async def translate_header_description(self, header_description: str):
         """Translate the header description"""
         translated_description = await translate_content(
-            md_page.header.description, self.prompt_template, **self.model_args
+            header_description, self.prompt_template, **self.model_args
         )
         return translated_description
 
@@ -173,7 +169,8 @@ async def _translate_file(
             return translation_results
         except Exception as e:
             logging.error(f"❌ Error translating {input_file}: {e}")
-            raise e
+            return {"original_page": None, "translated_page": None, "error": str(e)}
+            # raise e
 
 
 @weave.op
@@ -189,11 +186,6 @@ async def _translate_files(
     model_args: dict = dict(model="gpt-4o", temperature=1.0),  # model args
     max_concurrent_calls: int = MAX_CONCURRENT_CALLS,  # Maximum number of concurrent calls to OpenAI
 ):
-    # let's make input_files support a txt file with a list of files
-    if not isinstance(input_files, list):
-        if Path(input_files).suffix == ".txt":
-            logging.info(f"Reading {input_files}")
-        input_files = Path(input_files).read_text().splitlines()
     input_files = [
         Path(f)
         for f in input_files
@@ -231,14 +223,21 @@ async def _translate_files(
                 }
             )
             return translation_results
-
+    start_time = time.perf_counter()
     tasks = [_translate_with_semaphore(md_file) for md_file in input_files]
 
     results = await tqdm.gather(*tasks, desc="Translating files")
+    console.rule(f"Finished translating {len(input_files)} files in {time.perf_counter() - start_time:.2f} s")
+
+    # let's count the number of errors
+    failed_translations = [r for r in results if r["error"] is not None]
+    for result in failed_translations:
+        console.print(f"  Error translating {result['input_file']}: {result['error']}")
+    console.rule(f"Failed to translate {len(failed_translations)} files")
 
     dataset = to_weave_dataset(name=f"Translation-{language}", rows=results)
     weave.publish(dataset)
-
+    console.rule(f"Uploaded to Weave Dataset: Translation-{language}")
 
 if __name__ == "__main__":
     from gpt_translate.cli import setup_logging

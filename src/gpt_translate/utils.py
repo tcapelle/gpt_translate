@@ -167,12 +167,18 @@ def get_modified_files(repo_path: Path, since_days: int = 14, extension: str = "
 
 def to_weave_dataset(name: str, rows: list) -> weave.Dataset:
     # serialize the pydantic objects that are in the dictionary:
-    for result in rows:
-        for k, v in result.items():
-            # check if we have weave.Object or pydantic.BaseModel
-            if isinstance(v, pydantic.BaseModel | weave.Object):
-                result[k] = v.model_dump_json()
+    def _process_row(row):
+        return {
+            "input_file": row["input_file"],
+            "output_file": row["output_file"],
+            "language": row["language"],
+            "original_doc": row["original_page"].content,
+            "translated_doc": row["translated_page"].content,
+        }
+    processed_rows = []
+    for row in rows:
+        processed_rows.append(_process_row(row))
 
     # push to weave
-    dataset = weave.Dataset(name=name, description="Translation files", rows=rows)
+    dataset = weave.Dataset(name=name, description="Translation files", rows=processed_rows)
     return dataset
