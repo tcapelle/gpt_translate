@@ -225,10 +225,11 @@ async def _translate_files(
     tasks = [_translate_with_semaphore(md_file) for md_file in input_files]
 
     results = await tqdm.gather(*tasks, desc="Translating files")
-
+    console.rule(f"Finished translating {len(input_files)} files")
+    
     dataset = to_weave_dataset(name=f"Translation-{language}", rows=results)
     weave.publish(dataset)
-
+    console.rule(f"Uploaded to Weave Dataset: Translation-{language}")
 
 if __name__ == "__main__":
     from gpt_translate.cli import setup_logging
