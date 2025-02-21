@@ -3,8 +3,7 @@ import asyncio
 from pathlib import Path
 from dataclasses import dataclass, field
 from tqdm.asyncio import tqdm
-from typing import Optional, Any
-import yaml
+from rich.console import Console
 
 import weave
 from pydantic import model_validator, Field
@@ -28,6 +27,7 @@ REPLACE = False
 REMOVE_COMMENTS = True
 MAX_CONCURRENT_CALLS = 7  # Adjust the limit as needed
 
+console = Console()
 
 @dataclass
 class TranslationResult:
@@ -184,11 +184,6 @@ async def _translate_files(
     model_args: dict = dict(model="gpt-4o", temperature=1.0),  # model args
     max_concurrent_calls: int = MAX_CONCURRENT_CALLS,  # Maximum number of concurrent calls to OpenAI
 ):
-    # let's make input_files support a txt file with a list of files
-    if not isinstance(input_files, list):
-        if Path(input_files).suffix == ".txt":
-            logging.info(f"Reading {input_files}")
-        input_files = Path(input_files).read_text().splitlines()
     input_files = [
         Path(f)
         for f in input_files
