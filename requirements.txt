@@ -1,5 +1,5 @@
 rich
-openai
+litellm
 fastcore
 tiktoken
 wandb

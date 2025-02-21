@@ -43,3 +43,6 @@ homepage = "https://github.com/tcapelle/gpt_translate"
 "gpt_translate.new_files" = "gpt_translate.cli:new_files"
 "gpt_translate.eval" = "gpt_translate.cli:eval"
 
+
+[tool.hatch.version]
+path = "src/gpt_translate/version.py" 
