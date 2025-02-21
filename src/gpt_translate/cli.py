@@ -78,7 +78,7 @@ def translate_files(args=None):
             config_folder=config.config_folder,
             remove_comments=config.remove_comments,
             do_translate_header_description=config.do_translate_header_description,
-            max_openai_concurrent_calls=config.max_openai_concurrent_calls,
+            max_concurrent_calls=config.max_concurrent_calls,
             model_args={
                 "model": config.model,
                 "temperature": config.temperature,
@@ -107,7 +107,7 @@ def translate_folder(args=None):
             config_folder=config.config_folder,
             remove_comments=config.remove_comments,
             do_translate_header_description=config.do_translate_header_description,
-            max_openai_concurrent_calls=config.max_openai_concurrent_calls,
+            max_concurrent_calls=config.max_concurrent_calls,
             model_args={
                 "model": config.model,
                 "temperature": config.temperature,

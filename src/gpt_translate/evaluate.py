@@ -8,8 +8,9 @@ from typing import Any, Callable
 import weave
 from gpt_translate.configs import EvalConfig
 from gpt_translate.loader import MDPage
-from gpt_translate.utils import openai_client
 from gpt_translate.prompts import PromptTemplate
+from litellm import acompletion
+from pydantic import BaseModel, Field
 
 
 @weave.op
@@ -108,6 +109,15 @@ ALL_SCORERS = [
     validate_tabs,
 ]
 
+class EvaluationResult(BaseModel):
+    analysis: str = Field(description="a detailed analysis of the translation")
+    completeness: bool = Field(description="a boolean indicating if the translation is complete, not missing a piece at the end.")
+    translation_rating: int = Field(description="a rating from 1 to 10 indicating the quality of the translation")
+    product_words: bool = Field(description="A boolean indicating if the translation respects the given dictionary, check carefully the dictionary with the corresponding translation. Make sure not translating Weights & Biases product terms.")
+    code_comments: bool = Field(description="A boolean indicating if the code comments are translated correctly")
+    links: bool = Field(description="A boolean indicating if the links are translated correctly")
+
+
 class LLMJudge(weave.Model):
     system_prompt: str
     evaluation_prompt: str
@@ -126,13 +136,14 @@ class LLMJudge(weave.Model):
                 ),
             },
         ]
-        res = await openai_client.chat.completions.create(
+        res = await acompletion(
+            model=self.model_args.get("model", "gpt-4"),
             messages=messages,
             **self.model_args,
-            response_format={"type": "json_object"},
+            response_format=EvaluationResult,
         )
         extracted = res.choices[0].message.content
-        analysis = json.loads(extracted)
+        analysis = EvaluationResult.model_validate_json(extracted)
         return {"analysis": analysis, "translated_page": translated_page}
 
 

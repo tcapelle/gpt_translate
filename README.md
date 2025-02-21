@@ -36,6 +36,16 @@ The library provides a set of commands that you can access as CLI. All the comma
 - `gpt_translate.files`: Translate a list of files, accepts `.txt` list of files as input.
 - `gpt_translate.eval`: Evaluate the quality of the translation
 
+### Litellm Integration
+
+This project now uses **litellm** as the default interface for interacting with language models.
+Instead of calling the OpenAI API directly, all LLM interactions are performed using `litellm.acompletion`.
+Key features include:
+- **Asynchronous LLM Calls**: Efficient asynchronous completions via `litellm.acompletion`.
+- **Pydantic Response Validation**: Responses are automatically validated with Pydantic models using `model_validate_json`, ensuring that outputs conform to expected schemas.
+- **Enhanced Recursive Handling**: The `longer_create` function recursively handles token-limit scenarios by chaining completions.
+
+These improvements simplify the translation pipeline while ensuring robust response validation and improved handling of long outputs.
 
 We use GPT4 by default. You can change this on `configs/config.yaml`. The dafault values are:
 
@@ -51,7 +61,7 @@ config_folder: "./configs"  # Config folder, where the prompts and dictionaries 
 replace: true  # Replace existing file
 remove_comments: true  # Remove comments
 do_translate_header_description: true  # Translate the header description
-max_openai_concurrent_calls: 7  # Max number of concurrent calls to OpenAI
+max_concurrent_calls: 7  # Max number of concurrent calls to OpenAI
 
 # Files:
 input_file: "docs/intro.md"  # File to translate

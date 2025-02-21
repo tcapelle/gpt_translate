@@ -2,39 +2,33 @@ import time
 import git
 import logging
 import weave
+from pydantic import BaseModel, Field
 from datetime import datetime, timedelta
 from pathlib import Path
 
-import pydantic
 import tiktoken
-from openai import AsyncOpenAI
+from litellm import acompletion
 from fastcore.xtras import globtastic
 
-# Use the OpenAI API in async mode
-try:
-    openai_client = AsyncOpenAI()
-except Exception:
-    logging.warning("Failed to initialize OpenAI client. Using a dummy client.")
-    openai_client = None
-
-MODEL = "gpt-4"
-
+MODEL = "gpt-4o"
 
 @weave.op
 async def longer_create(messages=None, max_tokens=4096, **kwargs):
     """
-    longer_create is a function that extends the max_tokens beyond the default 4096 by recursively calling the create method if the finish_reason is hitting the max_tokens.
+    longer_create is a function that extends the max_tokens beyond the default 4096 by recursively calling the completion method if the finish_reason is hitting the max_tokens.
     """
     if messages is None:
         messages = []
 
-    res = await openai_client.chat.completions.create(
-        messages=messages, max_tokens=max_tokens, **kwargs
+    res = await acompletion(
+        messages=messages,
+        max_tokens=max_tokens,
+        **kwargs,
     )
     message_content = res.choices[0].message.content
     logging.debug(res.usage)
     logging.debug(
-        f"[blue]OpenAI response:\n{message_content[:100]}...[/blue]",
+        f"[blue]Litellm response:\n{message_content[:100]}...[/blue]",
         extra={"markup": True},
     )
 
