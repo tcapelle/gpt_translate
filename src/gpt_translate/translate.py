@@ -86,7 +86,7 @@ class Translator(weave.Object):
             extra={"markup": True},
         )
         translated_page = await self.translate_page(md_page)
-        return {"original_page": md_page, "translated_page": translated_page}
+        return {"original_page": md_page, "translated_page": translated_page, "error": None}
 
     @weave.op
     async def translate_page(self, md_page: MDPage, translate_header: bool = True):
@@ -169,7 +169,8 @@ async def _translate_file(
             return translation_results
         except Exception as e:
             logging.error(f"❌ Error translating {input_file}: {e}")
-            raise e
+            return {"original_page": None, "translated_page": None, "error": str(e)}
+            # raise e
 
 
 @weave.op
@@ -227,7 +228,13 @@ async def _translate_files(
 
     results = await tqdm.gather(*tasks, desc="Translating files")
     console.rule(f"Finished translating {len(input_files)} files in {time.perf_counter() - start_time:.2f} s")
-    
+
+    # let's count the number of errors
+    failed_translations = [r for r in results if r["error"] is not None]
+    for result in failed_translations:
+        console.print(f"  Error translating {result['input_file']}: {result['error']}")
+    console.rule(f"Failed to translate {len(failed_translations)} files")
+
     dataset = to_weave_dataset(name=f"Translation-{language}", rows=results)
     weave.publish(dataset)
     console.rule(f"Uploaded to Weave Dataset: Translation-{language}")
