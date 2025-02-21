@@ -1,5 +1,6 @@
 import logging
 import asyncio
+import time
 from pathlib import Path
 from dataclasses import dataclass, field
 from tqdm.asyncio import tqdm
@@ -221,11 +222,11 @@ async def _translate_files(
                 }
             )
             return translation_results
-
+    start_time = time.perf_counter()
     tasks = [_translate_with_semaphore(md_file) for md_file in input_files]
 
     results = await tqdm.gather(*tasks, desc="Translating files")
-    console.rule(f"Finished translating {len(input_files)} files")
+    console.rule(f"Finished translating {len(input_files)} files in {time.perf_counter() - start_time:.2f} s")
     
     dataset = to_weave_dataset(name=f"Translation-{language}", rows=results)
     weave.publish(dataset)
