@@ -1,8 +1,9 @@
 import logging
 import asyncio
 import time
+from typing import Any
 from pathlib import Path
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from tqdm.asyncio import tqdm
 from rich.console import Console
 
@@ -27,6 +28,7 @@ from gpt_translate.utils import (
 REPLACE = False
 REMOVE_COMMENTS = True
 MAX_CONCURRENT_CALLS = 7  # Adjust the limit as needed
+MIN_CONTENT_LENGTH = 10
 
 console = Console()
 
@@ -37,7 +39,7 @@ class TranslationResult:
 
 
 @weave.op
-async def translate_content(md_content: str, prompt: PromptTemplate, **model_args):
+async def translate_content(md_content: str, prompt: PromptTemplate, **model_args) -> TranslationResult:
     """Translate a markdown chunk asynchronously
     md_content: markdown content
     prompt: PromptTemplate object
@@ -71,18 +73,17 @@ class Translator(weave.Object):
         return values
 
     @weave.op
-    async def translate_file(self, md_file: str, remove_comments: bool = True):
+    async def translate_file(self, md_file: str, remove_comments: bool = True) -> dict[str, Any]:
         """Translate a markdown file asynchronously"""
         with open(md_file, "r") as f:
-            md_content = f.read()
+            raw_content = f.read()
         if remove_comments:
             logging.debug("Removing comments")
-            md_content = remove_markdown_comments(md_content)
-        if len(md_content.strip()) < 20:
-            logging.warning(f"File may be empty: {md_file}")
-        md_page = MDPage.from_raw_content(filename=md_file, raw_content=md_content)
+            raw_content_cleaned = remove_markdown_comments(raw_content)
+
+        md_page = MDPage.from_raw_content(filename=md_file, raw_content=raw_content_cleaned)
         logging.debug(
-            f"[bold red blink]Calling OpenAI [/bold red blink]with {self.model_args}\nFile: {md_file}\nContent:\n{md_content[:100]}...",
+            f"[bold red blink]Calling OpenAI [/bold red blink]with {self.model_args}\nFile: {md_file}\nContent:\n{md_page.content[:100]}...",
             extra={"markup": True},
         )
         translated_page = await self.translate_page(md_page)
@@ -91,9 +92,14 @@ class Translator(weave.Object):
     @weave.op
     async def translate_page(self, md_page: MDPage, translate_header: bool = True):
         """Translate a markdown page asynchronously"""
-        translated_content = await translate_content(
-            md_page.content, self.prompt_template, **self.model_args
-        )
+        if len(md_page.content.strip()) < MIN_CONTENT_LENGTH:
+            translated_content = md_page.content
+            logging.warning(f"Skipping translation of {md_page} because it is empty")
+        else:
+            translated_content = await translate_content(
+                md_page.content, self.prompt_template, **self.model_args
+            )
+
         logging.debug(f"Translated content: {translated_content}")
         if md_page.header.description and self.do_translate_header_description:
             translated_header_description = await self.translate_header_description(
@@ -136,20 +142,25 @@ async def _translate_file(
     config_folder: str = "./configs",  # Config folder
     remove_comments: bool = REMOVE_COMMENTS,  # Remove comments
     do_translate_header_description: bool = True,  # Translate the header description
-    model_args: dict = dict(model="gpt-4o", temperature=1.0),  # model args
+    model_args: dict = dict(model="gpt-4o", temperature=1.0),  # Model args
+    max_retries: int = 3,  # Maximum number of attempts
+    retry_delay: float = 3.0,  # Delay (in seconds) between retries
 ) -> MDPage:
-    """Translate a markdown file asynchronously"""
+    """Translate a markdown file asynchronously with retry logic"""
+
     if file_is_empty(input_file):
         raise ValueError(f"File {input_file} is empty")
 
-    # check it is a md file
+    # Check that it is a markdown file
     if Path(input_file).suffix not in [".md", ".mdx"]:
         raise ValueError(f"File {input_file} is not a markdown file")
+
     out_file = Path(out_file)
     if out_file.exists() and not replace and not file_is_empty(out_file):
         logging.info(f"File {out_file} already exists. Use --replace to overwrite.")
-    else:
-        out_file.parent.mkdir(parents=True, exist_ok=True)
+    out_file.parent.mkdir(parents=True, exist_ok=True)
+
+    for attempt in range(1, max_retries + 1):
         try:
             translator = Translator(
                 config_folder=config_folder,
@@ -157,33 +168,46 @@ async def _translate_file(
                 do_translate_header_description=do_translate_header_description,
                 model_args=model_args,
             )
-            translation_results = await translator.translate_file(
-                input_file, remove_comments
-            )
+            translation_results = await translator.translate_file(input_file, remove_comments)
             with open(out_file, "w", encoding="utf-8") as f:
                 f.write(str(translation_results["translated_page"]))
             logging.info(
                 f"✅ Translated file saved to [green]{out_file}[/green]",
                 extra={"markup": True},
             )
-            return translation_results
+            return {
+                **translation_results,
+                "input_file": input_file,
+                "output_file": str(out_file),
+                "language": language,
+            }
         except Exception as e:
-            logging.error(f"❌ Error translating {input_file}: {e}")
-            return {"original_page": None, "translated_page": None, "error": str(e)}
-            # raise e
+            logging.error(f"❌ Attempt {attempt} failed translating {input_file}: {e}")
+            if attempt < max_retries:
+                logging.info(f"Retrying {input_file} in {retry_delay} seconds (Attempt {attempt + 1}/{max_retries})...")
+                await asyncio.sleep(retry_delay)
+            else:
+                return {
+                    "original_page": None,
+                    "translated_page": None,
+                    "error": str(e),
+                    "input_file": input_file,
+                    "output_file": str(out_file),
+                    "language": language,
+                }
 
 
 @weave.op
 async def _translate_files(
     input_files: list[str],  # Files to translate
-    input_folder: str,  # folder where the file lives
+    input_folder: str,  # Folder where the files live
     out_folder: str,  # Folder to save the translated files to
     replace: bool = REPLACE,  # Replace existing file
     language: str = "es",  # Language to translate to
     config_folder: str = "./configs",  # Config folder
     remove_comments: bool = REMOVE_COMMENTS,  # Remove comments
     do_translate_header_description: bool = True,  # Translate the header description
-    model_args: dict = dict(model="gpt-4o", temperature=1.0),  # model args
+    model_args: dict = dict(model="gpt-4o", temperature=1.0),  # Model args
     max_concurrent_calls: int = MAX_CONCURRENT_CALLS,  # Maximum number of concurrent calls to OpenAI
 ):
     input_files = [
@@ -202,10 +226,10 @@ async def _translate_files(
 
     semaphore = asyncio.Semaphore(max_concurrent_calls)
 
-    async def _translate_with_semaphore(md_file):
+    async def _translate_with_semaphore(md_file: Path):
         async with semaphore:
             out_file = out_folder / md_file.relative_to(input_folder)
-            translation_results = await _translate_file(
+            return await _translate_file(
                 input_file=str(md_file),
                 out_file=str(out_file),
                 replace=replace,
@@ -215,27 +239,24 @@ async def _translate_files(
                 do_translate_header_description=do_translate_header_description,
                 model_args=model_args,
             )
-            translation_results.update(
-                {
-                    "input_file": str(md_file),
-                    "output_file": str(out_file),
-                    "language": language,
-                }
-            )
-            return translation_results
+
     start_time = time.perf_counter()
     tasks = [_translate_with_semaphore(md_file) for md_file in input_files]
-
     results = await tqdm.gather(*tasks, desc="Translating files")
-    console.rule(f"Finished translating {len(input_files)} files in {time.perf_counter() - start_time:.2f} s")
+    duration = time.perf_counter() - start_time
+    console.rule(f"Finished translating {len(input_files)} files in {duration:.2f} s")
 
-    # let's count the number of errors
-    failed_translations = [r for r in results if r["error"] is not None]
-    for result in failed_translations:
-        console.print(f"  Error translating {result['input_file']}: {result['error']}")
-    console.rule(f"Failed to translate {len(failed_translations)} files")
+    correct_translations = [r for r in results if r.get("error") is None]
+    failed_translations = [r for r in results if r.get("error") is not None]
 
-    dataset = to_weave_dataset(name=f"Translation-{language}", rows=results)
+    if failed_translations:
+        console.rule(f"Failed to translate {len(failed_translations)} files after maximum retry attempts")
+        for result in failed_translations:
+            console.print(f"Error translating {result['input_file']}: {result['error']}")
+    else:
+        console.rule("All files translated successfully")
+
+    dataset = to_weave_dataset(name=f"Translation-{language}", rows=correct_translations)
     weave.publish(dataset)
     console.rule(f"Uploaded to Weave Dataset: Translation-{language}")
 
