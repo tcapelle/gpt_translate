@@ -31,6 +31,7 @@ def setup_logging(debug=False, silence_openai=True, weave_project=None):
         logging.getLogger("httpcore").setLevel(logging.WARNING)
         logging.getLogger("openai").setLevel(logging.WARNING)
         logging.getLogger("httpx").setLevel(logging.WARNING)
+        logging.getLogger("LiteLLM").setLevel(logging.WARNING)
 
 
 def translate_file(args=None):
