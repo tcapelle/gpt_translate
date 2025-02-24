@@ -13,11 +13,12 @@ from gpt_translate.loader import MDPage, Header
 from gpt_translate.prompts import PromptTemplate
 from gpt_translate.utils import longer_create
 
+MODEL_NAME = "gemini/gemini-2.0-flash"
 
 # Skip these tests if no API key is available
 requires_api_key = pytest.mark.skipif(
-    "OPENAI_API_KEY" not in os.environ,
-    reason="Requires OPENAI_API_KEY environment variable"
+    "GOOGLE_API_KEY" not in os.environ,
+    reason="Requires GOOGLE_API_KEY environment variable"
 )
 
 
@@ -35,7 +36,7 @@ async def test_translate_content_live():
     
     # Use OpenAI model
     model_args = {
-        "model": "gpt-3.5-turbo",
+        "model": MODEL_NAME,
         "temperature": 0.7,
         "max_tokens": 1000
     }
@@ -60,7 +61,7 @@ async def test_translator_live():
         config_folder="./configs",
         language="es",
         model_args={
-            "model": "gpt-3.5-turbo",
+            "model": MODEL_NAME,
             "temperature": 0.7
         }
     )
@@ -111,7 +112,7 @@ async def test_translate_file_live():
             language="es",
             config_folder="./configs",
             model_args={
-                "model": "gpt-3.5-turbo",
+                "model": MODEL_NAME,
                 "temperature": 0.7
             }
         )
@@ -163,7 +164,7 @@ async def test_batch_translate_live():
                         language="es",
                         config_folder="./configs",
                         model_args={
-                            "model": "gpt-3.5-turbo",
+                            "model": MODEL_NAME,
                             "temperature": 0.7
                         }
                     )
@@ -207,7 +208,7 @@ async def test_longer_create_live():
     
     # Use a model that's likely to produce long outputs
     model_args = {
-        "model": "gpt-3.5-turbo",  # Could use a larger model if available
+        "model": MODEL_NAME,  # Could use a larger model if available
         "temperature": 0.7,
         # Use a small max_tokens to force recursion
         "max_tokens": 1000  
