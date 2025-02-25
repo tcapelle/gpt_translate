@@ -13,12 +13,17 @@ from gpt_translate.loader import MDPage, Header
 from gpt_translate.prompts import PromptTemplate
 from gpt_translate.utils import longer_create
 
-MODEL_NAME = "gemini/gemini-2.0-flash"
+if "GOOGLE_API_KEY" in os.environ:
+    MODEL_NAME = "gemini/gemini-2.0-flash"
+elif "OPENAI_API_KEY" in os.environ:
+    MODEL_NAME = "gpt-4o-mini"
+else:
+    raise ValueError("No API key found in environment variables")
 
 # Skip these tests if no API key is available
 requires_api_key = pytest.mark.skipif(
-    "GOOGLE_API_KEY" not in os.environ,
-    reason="Requires GOOGLE_API_KEY environment variable"
+    "GOOGLE_API_KEY" not in os.environ and "OPENAI_API_KEY" not in os.environ,
+    reason="Requires GOOGLE_API_KEY or OPENAI_API_KEY environment variable"
 )
 
 
