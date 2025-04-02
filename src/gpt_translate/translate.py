@@ -99,6 +99,7 @@ class Translator(weave.Object):
             translated_content = await translate_content(
                 md_page.content, self.prompt_template, **self.model_args
             )
+            translated_content = str(translated_content.content)
 
         logging.debug(f"Translated content: {translated_content}")
         if md_page.header.description and self.do_translate_header_description:
@@ -120,7 +121,7 @@ class Translator(weave.Object):
             new_header = md_page.header
         return MDPage(
             filename=md_page.filename,
-            content=translated_content.content,
+            content=translated_content,
             header=new_header,
         )
 
@@ -256,9 +257,9 @@ async def _translate_files(
     else:
         console.rule("All files translated successfully")
 
-    dataset = to_weave_dataset(name=f"Translation-{language}", rows=correct_translations)
-    weave.publish(dataset)
-    console.rule(f"Uploaded to Weave Dataset: Translation-{language}")
+    # dataset = to_weave_dataset(name=f"Translation-{language}", rows=correct_translations)
+    # weave.publish(dataset)
+    # console.rule(f"Uploaded to Weave Dataset: Translation-{language}")
 
 if __name__ == "__main__":
     from gpt_translate.cli import setup_logging
