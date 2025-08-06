@@ -1,13 +1,9 @@
-import logging
 import asyncio
 import time
 from typing import Any
 from pathlib import Path
 from copy import copy
 from dataclasses import dataclass
-from tqdm.asyncio import tqdm
-from rich.console import Console
-
 import weave
 from pydantic import model_validator, Field
 
@@ -22,6 +18,9 @@ from gpt_translate.utils import (
     count_tokens,
     longer_create,
     to_weave_dataset,
+    gather_with_progress,
+    console,
+    logger,
 )
 
 
@@ -30,8 +29,6 @@ REPLACE = False
 REMOVE_COMMENTS = True
 MAX_CONCURRENT_CALLS = 7  # Adjust the limit as needed
 MIN_CONTENT_LENGTH = 10
-
-console = Console()
 
 @dataclass
 class TranslationResult:
@@ -80,11 +77,11 @@ class Translator(weave.Object):
         with open(md_file, "r") as f:
             raw_content = f.read()
         if remove_comments:
-            logging.debug("Removing comments")
+            logger.debug("Removing comments")
             raw_content_cleaned = remove_markdown_comments(raw_content)
 
         md_page = MDPage.from_raw_content(filename=md_file, raw_content=raw_content_cleaned)
-        logging.debug(
+        logger.debug(
             f"[bold red blink]Calling OpenAI [/bold red blink]with {self.model_args}\nFile: {md_file}\nContent:\n{md_page.content[:100]}...",
             extra={"markup": True},
         )
@@ -96,15 +93,15 @@ class Translator(weave.Object):
         """Translate a markdown page asynchronously"""
         if len(md_page.content.strip()) < MIN_CONTENT_LENGTH:
             translated_content = md_page.content
-            logging.warning(f"Skipping translation of {md_page} because it is empty")
+            logger.warning(f"Skipping translation of {md_page} because it is empty")
         else:
             translated_content = await translate_content(
                 md_page.content, self.prompt_template, **self.model_args
             )
             translated_content = str(translated_content.content)
 
-        logging.debug(f"Translated content: {translated_content}")
-        logging.debug(f"Header {md_page.header}")
+        logger.debug(f"Translated content: {translated_content}")
+        logger.debug(f"Header {md_page.header}")
         if md_page.header.description and self.do_translate_header_description:
             translated_header_description = await self.translate_header_item(
                 md_page.header.description
@@ -186,7 +183,7 @@ async def _translate_file(
 
     out_file = Path(out_file)
     if out_file.exists() and not replace and not file_is_empty(out_file):
-        logging.info(f"File {out_file} already exists. Use --replace to overwrite.")
+        logger.info(f"File {out_file} already exists. Use --replace to overwrite.")
     out_file.parent.mkdir(parents=True, exist_ok=True)
 
     for attempt in range(1, max_retries + 1):
@@ -200,7 +197,7 @@ async def _translate_file(
             translation_results = await translator.translate_file(input_file, remove_comments)
             with open(out_file, "w", encoding="utf-8") as f:
                 f.write(str(translation_results["translated_page"]))
-            logging.info(
+            logger.debug(
                 f"✅ Translated file saved to [green]{out_file}[/green]",
                 extra={"markup": True},
             )
@@ -211,9 +208,9 @@ async def _translate_file(
                 "language": language,
             }
         except Exception as e:
-            logging.error(f"❌ Attempt {attempt} failed translating {input_file}: {e}")
+            logger.error(f"❌ Attempt {attempt} failed translating {input_file}: {e}")
             if attempt < max_retries:
-                logging.info(f"Retrying {input_file} in {retry_delay} seconds (Attempt {attempt + 1}/{max_retries})...")
+                logger.info(f"Retrying {input_file} in {retry_delay} seconds (Attempt {attempt + 1}/{max_retries})...")
                 await asyncio.sleep(retry_delay)
             else:
                 return {
@@ -244,7 +241,7 @@ async def _translate_files(
         for f in input_files
         if (Path(f).suffix in [".md", ".mdx"] and Path(f).exists())
     ]
-    logging.info(
+    logger.info(
         f"Translating {len(input_files)} file" + ("s" if len(input_files) > 1 else "")
     )
     input_files.sort()
@@ -271,7 +268,7 @@ async def _translate_files(
 
     start_time = time.perf_counter()
     tasks = [_translate_with_semaphore(md_file) for md_file in input_files]
-    results = await tqdm.gather(*tasks, desc="Translating files")
+    results = await gather_with_progress(tasks, "Translating files")
     duration = time.perf_counter() - start_time
     console.rule(f"Finished translating {len(input_files)} files in {duration:.2f} s")
 

@@ -8,7 +8,7 @@ import simple_parsing
 from dataclasses import dataclass
 
 from gpt_translate.translate import _translate_file, _translate_files
-from gpt_translate.utils import get_md_files, _copy_images, get_modified_files
+from gpt_translate.utils import get_md_files, _copy_images, get_modified_files, console, logger
 from gpt_translate.configs import EvalConfig, setup_parsing, DEFAULT_EVAL_CONFIG_PATH, CopyImagesArgs, NewFilesArgs
 from gpt_translate.evaluate import Evaluator
 
@@ -20,10 +20,13 @@ def setup_logging(debug=False, silence_openai=True, weave_project=None):
     if weave_project:
         weave.init(weave_project)
 
-    # Setup rich logger
+    # Setup rich logger with shared console
     level = "DEBUG" if debug else "INFO"
     logging.basicConfig(
-        level=level, format="%(message)s", datefmt="[%X]", handlers=[RichHandler()]
+        level=level, 
+        format="%(message)s", 
+        datefmt="[%X]", 
+        handlers=[RichHandler(console=console, rich_tracebacks=True)]
     )
 
     # silence openai logger
@@ -42,7 +45,7 @@ def translate_file(args=None):
         silence_openai=config.silence_openai,
         weave_project=config.weave_project,
     )
-    logging.info(f"{config.dumps_yaml()}")
+    logger.info(f"{config.dumps_yaml()}")
     asyncio.run(
         _translate_file(
             input_file=config.input_file,
@@ -68,7 +71,7 @@ def translate_files(args=None):
         silence_openai=config.silence_openai,
         weave_project=config.weave_project,
     )
-    logging.info(f"{config.dumps_yaml()}")
+    logger.info(f"{config.dumps_yaml()}")
     asyncio.run(
         _translate_files(
             input_files=config.input_file,
@@ -96,7 +99,7 @@ def translate_folder(args=None):
         silence_openai=config.silence_openai,
         weave_project=config.weave_project,
     )
-    logging.info(f"{config.dumps_yaml()}")
+    logger.info(f"{config.dumps_yaml()}")
     input_files = get_md_files(config.input_folder)[: config.limit]
     asyncio.run(
         _translate_files(
@@ -125,7 +128,7 @@ def eval(args=None):
         silence_openai=config.silence_openai,
         weave_project=config.weave_project,
     )
-    logging.info(f"{config.dumps_yaml()}")
+    logger.info(f"{config.dumps_yaml()}")
 
     evaluator = Evaluator(config)
     evaluator.evaluate()

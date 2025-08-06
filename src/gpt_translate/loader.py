@@ -1,11 +1,11 @@
 import re
 import yaml
-import logging
 from typing import Optional, Any
 from dataclasses import dataclass, field
 
 import weave
 from pydantic import model_validator, Field
+from gpt_translate.utils import logger
 
 
 def remove_markdown_comments(content):
@@ -235,16 +235,16 @@ class MDPage(weave.Object):
     def update_links(self, new_links: list[MDLink], targets_only=True) -> None:
         "Update the links in the content"
         if len(new_links) == len(self.links):
-            logging.error(
+            logger.error(
                 f"The following links don't match: {new_links} vs {self.links}"
             )
             raise ValueError(
                 f"Number of links don't match: {len(new_links)} vs {len(self.links)}"
             )
-        logging.debug(f"Maybe updating links in {self.filename}")
+        logger.debug(f"Maybe updating links in {self.filename}")
         for old_link, new_link in zip(self.links, new_links):
             if old_link.target != new_link.target:
-                logging.debug(f"Replacing {old_link} with {new_link}")
+                logger.debug(f"Replacing {old_link} with {new_link}")
                 self.content = self.content.replace(old_link.target, new_link.target)
         if targets_only:
             self.links = self.find_links(self.content)

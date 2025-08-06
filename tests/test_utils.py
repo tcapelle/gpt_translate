@@ -1,4 +1,5 @@
 import os
+import asyncio
 import pytest
 from unittest.mock import patch, AsyncMock, MagicMock
 from pathlib import Path
@@ -9,8 +10,13 @@ from gpt_translate.utils import (
     remove_after, 
     longer_create, 
     count_tokens,
-    to_weave_dataset
+    to_weave_dataset,
+    gather_with_progress,
+    logger
 )
+from rich.progress import Progress
+from rich.console import Console
+import logging
 
 
 def test_empty_file():
@@ -216,3 +222,211 @@ def test_to_weave_dataset_empty_input(mock_dataset_class):
         description="Translation files", 
         rows=[]
     )
+
+
+# Tests for gather_with_progress function
+async def mock_task(delay: float, task_id: int, should_fail: bool = False):
+    """Mock async task that simulates some work"""
+    await asyncio.sleep(delay)
+    if should_fail:
+        raise Exception(f"Mock error in task {task_id}")
+    return {"task_id": task_id, "result": f"completed task {task_id}", "error": None}
+
+
+@pytest.mark.asyncio
+async def test_gather_with_progress_empty_tasks():
+    """Test gather_with_progress with empty task list"""
+    tasks = []
+    results = await gather_with_progress(tasks, "Testing empty list")
+    assert results == []
+
+
+@pytest.mark.asyncio
+async def test_gather_with_progress_single_task():
+    """Test gather_with_progress with a single task"""
+    tasks = [mock_task(0.1, 1)]
+    results = await gather_with_progress(tasks, "Testing single task")
+    
+    assert len(results) == 1
+    assert results[0]["task_id"] == 1
+    assert results[0]["result"] == "completed task 1"
+    assert results[0]["error"] is None
+
+
+@pytest.mark.asyncio
+async def test_gather_with_progress_multiple_tasks():
+    """Test gather_with_progress with multiple successful tasks"""
+    tasks = [
+        mock_task(0.1, 1),
+        mock_task(0.05, 2),
+        mock_task(0.15, 3),
+        mock_task(0.02, 4),
+    ]
+    
+    results = await gather_with_progress(tasks, "Testing multiple tasks")
+    
+    assert len(results) == 4
+    # Check that results are in the correct order (same as input tasks)
+    for i, result in enumerate(results):
+        assert result["task_id"] == i + 1
+        assert result["result"] == f"completed task {i + 1}"
+        assert result["error"] is None
+
+
+@pytest.mark.asyncio
+async def test_gather_with_progress_with_failures():
+    """Test gather_with_progress with some failing tasks"""
+    tasks = [
+        mock_task(0.1, 1),
+        mock_task(0.05, 2, should_fail=True),  # This one fails
+        mock_task(0.15, 3),
+        mock_task(0.02, 4, should_fail=True),  # This one also fails
+    ]
+    
+    results = await gather_with_progress(tasks, "Testing with failures")
+    
+    assert len(results) == 4
+    
+    # Check successful tasks
+    assert results[0]["task_id"] == 1
+    assert results[0]["error"] is None
+    assert results[2]["task_id"] == 3
+    assert results[2]["error"] is None
+    
+    # Check failed tasks
+    assert results[1]["error"] == "Mock error in task 2"
+    assert results[3]["error"] == "Mock error in task 4"
+
+
+@pytest.mark.asyncio
+async def test_gather_with_progress_preserves_order():
+    """Test that gather_with_progress preserves task order even when tasks complete out of order"""
+    # Create tasks where the first one takes longest, last one completes first
+    tasks = [
+        mock_task(0.2, 1),   # Slowest
+        mock_task(0.1, 2),   # Medium
+        mock_task(0.05, 3),  # Fast
+        mock_task(0.01, 4),  # Fastest
+    ]
+    
+    results = await gather_with_progress(tasks, "Testing order preservation")
+    
+    assert len(results) == 4
+    # Even though task 4 completes first, it should be in position 3 (index 3)
+    # and task 1 should be in position 0 (index 0) even though it completes last
+    assert results[0]["task_id"] == 1
+    assert results[1]["task_id"] == 2
+    assert results[2]["task_id"] == 3
+    assert results[3]["task_id"] == 4
+
+
+@pytest.mark.asyncio
+async def test_gather_with_progress_all_failures():
+    """Test gather_with_progress when all tasks fail"""
+    tasks = [
+        mock_task(0.1, 1, should_fail=True),
+        mock_task(0.05, 2, should_fail=True),
+        mock_task(0.02, 3, should_fail=True),
+    ]
+    
+    results = await gather_with_progress(tasks, "Testing all failures")
+    
+    assert len(results) == 3
+    for i, result in enumerate(results):
+        assert result["error"] == f"Mock error in task {i + 1}"
+
+
+@pytest.mark.asyncio
+async def test_gather_with_progress_custom_description():
+    """Test that gather_with_progress uses custom description"""
+    async def simple_task():
+        await asyncio.sleep(0.01)
+        return "done"
+    
+    tasks = [simple_task()]
+    
+    # Test with custom description - this is more of an integration test
+    # to ensure the function works with different descriptions
+    results = await gather_with_progress(tasks, "Custom test description")
+    
+    assert len(results) == 1
+    assert results[0] == "done"
+
+
+@pytest.mark.asyncio 
+async def test_gather_with_progress_mixed_result_types():
+    """Test gather_with_progress with tasks returning different result types"""
+    async def string_task():
+        await asyncio.sleep(0.01)
+        return "string result"
+        
+    async def dict_task():
+        await asyncio.sleep(0.01)
+        return {"type": "dict", "value": 42}
+        
+    async def list_task():
+        await asyncio.sleep(0.01)
+        return [1, 2, 3]
+    
+    tasks = [string_task(), dict_task(), list_task()]
+    results = await gather_with_progress(tasks, "Testing mixed types")
+    
+    assert len(results) == 3
+    assert results[0] == "string result"
+    assert results[1] == {"type": "dict", "value": 42}
+    assert results[2] == [1, 2, 3]
+
+
+@pytest.mark.asyncio
+async def test_gather_with_progress_custom_progress_object():
+    """Test gather_with_progress with a custom Progress object"""
+    async def simple_task():
+        await asyncio.sleep(0.01)
+        return "custom progress test"
+    
+    tasks = [simple_task(), simple_task()]
+    
+    # Create a custom progress object
+    console = Console()
+    with Progress(console=console, transient=True) as custom_progress:
+        results = await gather_with_progress(
+            tasks, 
+            "Testing custom progress", 
+            progress=custom_progress
+        )
+    
+    assert len(results) == 2
+    assert all(result == "custom progress test" for result in results)
+
+
+def test_rich_logger_configuration():
+    """Test that the Rich logger is properly configured"""
+    assert logger.name == "gpt_translate"
+    
+    # Test that importing from different places gives the same logger
+    from gpt_translate.utils import logger as utils_logger
+    from gpt_translate.translate import logger as translate_logger
+    from gpt_translate.loader import logger as loader_logger
+    from gpt_translate.evaluate import logger as evaluate_logger
+    
+    # All should be the same logger instance
+    assert utils_logger is translate_logger
+    assert translate_logger is loader_logger  
+    assert loader_logger is evaluate_logger
+    assert logger is utils_logger
+
+
+def test_logger_functionality():
+    """Test that the logger works with Rich formatting"""
+    # This is more of a smoke test to ensure no exceptions are raised
+    logger.info("Test info message")
+    logger.warning("Test warning message") 
+    logger.error("Test error message")
+    
+    # Test exception logging
+    try:
+        1 / 0
+    except Exception:
+        logger.exception("Test exception logging")
+    
+    # If we get here without exceptions, the logger is working
