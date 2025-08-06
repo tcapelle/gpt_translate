@@ -3,6 +3,7 @@ import asyncio
 import time
 from typing import Any
 from pathlib import Path
+from copy import copy
 from dataclasses import dataclass
 from tqdm.asyncio import tqdm
 from rich.console import Console
@@ -56,6 +57,7 @@ class Translator(weave.Object):
     config_folder: Path
     language: str = "ja"
     do_translate_header_description: bool = True
+    do_translate_header_title: bool = True
     model_args: dict = dict(model="gpt-4o", temperature=1.0)
     prompt_template: PromptTemplate = Field(default=None)
 
@@ -102,36 +104,62 @@ class Translator(weave.Object):
             translated_content = str(translated_content.content)
 
         logging.debug(f"Translated content: {translated_content}")
+        logging.debug(f"Header {md_page.header}")
         if md_page.header.description and self.do_translate_header_description:
-            translated_header_description = await self.translate_header_description(
+            translated_header_description = await self.translate_header_item(
                 md_page.header.description
             )
-            logging.debug(f"Translating header description: {md_page.header}")
             
             # Ensure the translated description is a string
             translated_desc = str(translated_header_description.content) if translated_header_description else None
-            
-            new_header = Header(
-                title=md_page.header.title,
-                description=translated_desc,
-                metadata=md_page.header.metadata,
-                body=md_page.header.body,
-            )
         else:
-            new_header = md_page.header
+            translated_desc = md_page.header.description
+
+        # Initialize new_metadata for all cases
+        new_metadata = copy(md_page.header.metadata)
+        
+        if  md_page.header.title and self.do_translate_header_title:
+            translated_header_title = await self.translate_header_item(
+                md_page.header.title
+            )
+
+            # Ensure the translated title is a string
+            translated_title = str(translated_header_title.content) if translated_header_title else None
+        else:
+            translated_title = md_page.header.title
+        if 'support' in md_page.header.metadata:
+            if md_page.header.metadata["support"]: #not empty
+                # logging.info(f"medatada: {md_page.header.metadata}")
+                support_translated = []
+                for item in md_page.header.metadata["support"]:
+                    support_item = await self.translate_header_item(item)
+                    # Explicitly cast to string
+                    support_translated.append(str(support_item.content))
+                new_metadata["support"] = support_translated
+                # logging.info(f"new_support: {new_metadata['support']}")
+                # logging.info(f"New metadata: {new_metadata}")
+
+        new_header = Header(
+            title=translated_title,
+            description=translated_desc,
+            metadata=new_metadata,
+            body=md_page.header.body,
+        )
+
         return MDPage(
             filename=md_page.filename,
             content=translated_content,
             header=new_header,
         )
+    
 
     @weave.op
-    async def translate_header_description(self, header_description: str):
+    async def translate_header_item(self, header_item: str):
         """Translate the header description"""
-        translated_description = await translate_content(
-            header_description, self.prompt_template, **self.model_args
+        translated_item = await translate_content(
+            header_item, self.prompt_template, **self.model_args
         )
-        return translated_description
+        return translated_item
 
 
 @weave.op
