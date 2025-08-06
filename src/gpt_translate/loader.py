@@ -131,8 +131,9 @@ class Header:
                 yaml_header = yaml.safe_dump(
                     combined_metadata, 
                     sort_keys=False,
-                    allow_unicode=True  # Enable proper Unicode handling
-                ).strip()
+                    allow_unicode=True,  # Enable proper Unicode handling
+                    encoding='utf-8'     # Explicitly set UTF-8 encoding
+                ).decode('utf-8').strip()  # Decode the bytes back to string
                 header_str = f"---\n{yaml_header}\n---"
             else:
                 header_str = ""
