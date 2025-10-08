@@ -1,6 +1,7 @@
 import time
 import git
 import logging
+import asyncio
 import weave
 from pydantic import BaseModel, Field
 from datetime import datetime, timedelta
@@ -9,8 +10,117 @@ from pathlib import Path
 import tiktoken
 from litellm import acompletion
 from fastcore.xtras import globtastic
+from rich.console import Console
+from rich.logging import RichHandler
+from rich.progress import Progress, TaskID, TimeElapsedColumn, BarColumn, TextColumn, MofNCompleteColumn
+from typing import Optional
 
 MODEL = "gpt-4o"
+
+# Console for Rich formatting - shared across the application
+console = Console()
+
+# Shared logger instance for the application
+# Note: The logger configuration is handled by the CLI setup_logging function
+logger = logging.getLogger("gpt_translate")
+
+
+@weave.op
+async def gather_with_progress(
+    tasks: list,
+    description: str = "Processing",
+    progress: Optional[Progress] = None
+) -> list:
+    """
+    Execute multiple async tasks with a Rich progress bar.
+    
+    Args:
+        tasks: List of async tasks to execute
+        description: Description to show in the progress bar
+        progress: Rich Progress object. If None, creates a default one.
+        
+    Returns:
+        List of results from completed tasks. Failed tasks return {"error": "error_message"}
+    """
+    if not tasks:
+        return []
+    
+    # Create default progress if none provided
+    if progress is None:
+        with Progress(
+            TextColumn("[bold blue]{task.description}"),
+            BarColumn(bar_width=None),
+            MofNCompleteColumn(),
+            TimeElapsedColumn(),
+            console=console,
+            transient=False
+        ) as default_progress:
+            return await _execute_tasks_with_progress(tasks, description, default_progress)
+    else:
+        # Use provided progress object (don't manage its lifecycle)
+        return await _execute_tasks_with_progress(tasks, description, progress)
+
+
+async def _execute_tasks_with_progress(tasks: list, description: str, progress: Progress) -> list:
+    """
+    Internal function to execute tasks with a given progress object.
+    
+    Args:
+        tasks: List of async tasks to execute
+        description: Description for the progress task
+        progress: Active Progress object
+        
+    Returns:
+        List of results from completed tasks
+    """
+    task_id = progress.add_task(description, total=len(tasks))
+    
+    # Use a proper mapping instead of mutating task objects
+    task_to_index = {}
+    results = [None] * len(tasks)
+    asyncio_tasks = []
+    
+    try:
+        # Create all tasks
+        for i, task in enumerate(tasks):
+            asyncio_task = asyncio.create_task(task)
+            task_to_index[asyncio_task] = i
+            asyncio_tasks.append(asyncio_task)
+        
+        pending_tasks = set(asyncio_tasks)
+        
+        while pending_tasks:
+            # Use wait to get completed tasks
+            done, pending_tasks = await asyncio.wait(
+                pending_tasks, 
+                return_when=asyncio.FIRST_COMPLETED
+            )
+            
+            for completed_task in done:
+                task_index = task_to_index[completed_task]
+                
+                try:
+                    result = await completed_task
+                    results[task_index] = result
+                except asyncio.CancelledError:
+                    results[task_index] = {"error": "Task was cancelled"}
+                    raise  # Re-raise cancellation
+                except Exception as e:
+                    # Handle errors by storing them in the result
+                    logger.exception(f"Task {task_index} failed: {e}")
+                    results[task_index] = {"error": str(e)}
+                
+                progress.update(task_id, advance=1)
+        
+        return results
+        
+    except Exception:
+        # Cancel any remaining tasks on error
+        for task in asyncio_tasks:
+            if not task.done():
+                task.cancel()
+        raise
+
 
 @weave.op
 async def longer_create(messages=None, max_tokens=4096, **kwargs):
@@ -167,12 +277,18 @@ def get_modified_files(repo_path: Path, since_days: int = 14, extension: str = "
 
 def to_weave_dataset(name: str, rows: list) -> weave.Dataset:
     # serialize the pydantic objects that are in the dictionary:
-    for result in rows:
-        for k, v in result.items():
-            # check if we have weave.Object or pydantic.BaseModel
-            if isinstance(v, pydantic.BaseModel | weave.Object):
-                result[k] = v.model_dump_json()
+    def _process_row(row):
+        return {
+            "input_file": row["input_file"],
+            "output_file": row["output_file"],
+            "language": row["language"],
+            "original_doc": row["original_page"].content,
+            "translated_doc": row["translated_page"].content,
+        }
+    processed_rows = []
+    for row in rows:
+        processed_rows.append(_process_row(row))
 
     # push to weave
-    dataset = weave.Dataset(name=name, description="Translation files", rows=rows)
+    dataset = weave.Dataset(name=name, description="Translation files", rows=processed_rows)
     return dataset

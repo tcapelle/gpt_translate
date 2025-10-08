@@ -1,7 +1,6 @@
 import asyncio
 import re
 import json
-import logging
 import yaml
 from pathlib import Path
 from typing import Any, Callable
@@ -9,6 +8,7 @@ import weave
 from gpt_translate.configs import EvalConfig
 from gpt_translate.loader import MDPage
 from gpt_translate.prompts import PromptTemplate
+from gpt_translate.utils import logger
 from litellm import acompletion
 from pydantic import BaseModel, Field
 
@@ -38,8 +38,8 @@ def validate_headers(original_page: MDPage, translated_page: MDPage, model_outpu
     """
     original_header = original_page.header
     translated_header = translated_page.header
-    title_match = original_header.title == translated_header.title
-    description_match = original_header.description == translated_header.description
+    title_match = original_header.metadata["title"] == translated_header.metadata["title"]
+    description_match = original_header.metadata["description"] == translated_header.metadata["description"]
     slug_match = original_header.slug == translated_header.slug
     displayed_sidebar_match = (
         original_header.displayed_sidebar == translated_header.displayed_sidebar
@@ -178,7 +178,7 @@ class Evaluator:
         )
 
     def get_dataset(self):
-        logging.info(f"Getting dataset: {self.config.eval_dataset}")
+        logger.info(f"Getting dataset: {self.config.eval_dataset}")
         dataset = weave.ref(self.config.eval_dataset).get()
 
         def deserialize(md_page):
@@ -192,7 +192,7 @@ class Evaluator:
             }
             for row in dataset.rows
         ]
-        logging.info(f"Running eval on {len(ds)} pages")
+        logger.info(f"Running eval on {len(ds)} pages")
         return ds
 
     def evaluate(self):

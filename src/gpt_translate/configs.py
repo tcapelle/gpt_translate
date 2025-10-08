@@ -24,6 +24,7 @@ class TranslateConfig(Serializable):
     replace: bool  # Replace existing file
     remove_comments: bool  # Remove comments
     do_translate_header_description: bool  # Translate the header description
+    do_translate_header_title: bool  # Translate the header title
     max_concurrent_calls: int  # Max number of concurrent calls to OpenAI
 
     input_file: str  # File to translate, can be a .txt file with a list of files when used with translate.files
